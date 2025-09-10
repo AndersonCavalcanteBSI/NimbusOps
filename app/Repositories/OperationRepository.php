@@ -84,4 +84,34 @@ final class OperationRepository
         $row = $stmt->fetch();
         return $row ?: null;
     }
+
+    public function findWithMetrics(int $id): ?array
+    {
+        $pdo = Database::pdo();
+        $sql = "
+        SELECT
+          o.*,
+          (
+            SELECT MAX(h.created_at)
+            FROM operation_history h
+            WHERE h.operation_id = o.id AND h.action = 'measurement'
+          ) AS last_measurement_at
+        FROM operations o
+        WHERE o.id = :id
+        LIMIT 1
+    ";
+        $st = $pdo->prepare($sql);
+        $st->execute([':id' => $id]);
+        $row = $st->fetch();
+
+        if (!$row) return null;
+
+        // next_measurement_at pode estar nulo => fallback (30 dias após a última medição, se existir)
+        if (empty($row['next_measurement_at']) && !empty($row['last_measurement_at'])) {
+            $ts = strtotime($row['last_measurement_at'] . ' +30 days');
+            $row['next_measurement_at'] = $ts ? date('Y-m-d', $ts) : null;
+        }
+
+        return $row;
+    }
 }

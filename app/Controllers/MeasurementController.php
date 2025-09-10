@@ -5,20 +5,20 @@ declare(strict_types=1);
 namespace App\Controllers;
 
 use Core\Controller;
+use Core\Mailer;
 use App\Repositories\OperationRepository;
+use App\Repositories\OperationHistoryRepository;
 use App\Repositories\MeasurementFileRepository;
+use App\Repositories\UserRepository;
 
 final class MeasurementController extends Controller
 {
-    /** Formulário: selecionar operação + enviar arquivo */
     public function create(): void
     {
-        // Carrega até 200 operações para o select (pode trocar por busca dinâmica depois)
         $ops = (new OperationRepository())->paginate([], 1, 200, 'title', 'asc')['data'] ?? [];
         $this->view('measurements/upload', ['operations' => $ops]);
     }
 
-    /** Recebe o POST do upload */
     public function store(): void
     {
         $opId = (int)($_POST['operation_id'] ?? 0);
@@ -27,8 +27,6 @@ final class MeasurementController extends Controller
             echo 'Operação inválida';
             return;
         }
-
-        // Confirma se a operação existe
         $op = (new OperationRepository())->find($opId);
         if (!$op) {
             http_response_code(404);
@@ -36,13 +34,11 @@ final class MeasurementController extends Controller
             return;
         }
 
-        // Validação do arquivo
         if (!isset($_FILES['file']) || $_FILES['file']['error'] !== UPLOAD_ERR_OK) {
             http_response_code(400);
             echo 'Arquivo inválido';
             return;
         }
-
         $name = (string)$_FILES['file']['name'];
         $tmp  = (string)$_FILES['file']['tmp_name'];
         $size = (int)$_FILES['file']['size'];
@@ -51,7 +47,6 @@ final class MeasurementController extends Controller
             echo 'Arquivo muito grande (max 20MB)';
             return;
         }
-
         $ext = strtolower(pathinfo($name, PATHINFO_EXTENSION));
         $allowed = ['pdf', 'xlsx', 'xls', 'csv'];
         if (!in_array($ext, $allowed, true)) {
@@ -60,29 +55,47 @@ final class MeasurementController extends Controller
             return;
         }
 
-        // Salva em public/uploads/ops/{operation_id}/
         $dir = __DIR__ . '/../../public/uploads/ops/' . $opId;
         if (!is_dir($dir) && !mkdir($dir, 0775, true) && !is_dir($dir)) {
             http_response_code(500);
             echo 'Falha ao criar diretório';
             return;
         }
-
-        $safeBase = pathinfo($name, PATHINFO_FILENAME);
-        $safeBase = preg_replace('/[^a-zA-Z0-9_-]+/', '_', (string)$safeBase) ?: 'medicao';
+        $safeBase = preg_replace('/[^a-zA-Z0-9_-]+/', '_', pathinfo($name, PATHINFO_FILENAME)) ?: 'medicao';
         $new = $safeBase . '_' . date('Ymd_His') . '.' . $ext;
-        $dest = $dir . '/' . $new;
-        if (!move_uploaded_file($tmp, $dest)) {
+        if (!move_uploaded_file($tmp, $dir . '/' . $new)) {
             http_response_code(500);
             echo 'Falha ao salvar';
             return;
         }
 
-        // Persiste registro
-        $publicPath = '/uploads/ops/' . $opId . '/' . $new; // acessível via web
+        $publicPath = '/uploads/ops/' . $opId . '/' . $new;
         (new MeasurementFileRepository())->create($opId, $name, $publicPath, null);
 
-        // Redireciona (com flag de sucesso)
+        // status -> pending
+        $pdo = \Core\Database::pdo();
+        $pdo->prepare('UPDATE operations SET status = "pending" WHERE id = :id')->execute([':id' => $opId]);
+        if (class_exists(OperationHistoryRepository::class)) {
+            (new OperationHistoryRepository())->log($opId, 'status_changed', 'Arquivo de medição adicionado: operação marcada como pending.');
+        }
+
+        // notificar responsável
+        $responsibleId = (int)($op['responsible_user_id'] ?? 0);
+        if ($responsibleId > 0) {
+            $u = (new UserRepository())->findBasic($responsibleId);
+            if ($u) {
+                $subject = 'Nova medição para a operação #' . $opId;
+                $html = '<p>Olá, ' . htmlspecialchars($u['name']) . '</p>'
+                    . '<p>Um novo arquivo de medição foi adicionado à operação <strong>#' . $opId . '</strong> (' . htmlspecialchars($op['title']) . ').</p>'
+                    . '<p>Status da operação: <strong>Pendente</strong>.</p>'
+                    . '<p>Acesse o sistema para validar.</p>';
+                try {
+                    Mailer::send($u['email'], $u['name'], $subject, $html);
+                } catch (\Throwable $e) { /* logue em prod */
+                }
+            }
+        }
+
         header('Location: /measurements/upload?ok=1');
     }
 }

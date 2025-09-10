@@ -79,4 +79,28 @@ final class OperationController extends Controller
             'displayStatus' => $displayStatus,
         ]);
     }
+
+    public function analyzeFile(int $fileId): void
+    {
+        // proteção mínima: só em local e com DEV_USER_ID setado
+        if (($_ENV['APP_ENV'] ?? 'local') !== 'local') {
+            http_response_code(403);
+            echo 'forbidden';
+            return;
+        }
+
+        $userId = \App\Security\CurrentUser::id();
+        if (!$userId) {
+            http_response_code(403);
+            echo 'no user';
+            return;
+        }
+
+        $mfRepo = new \App\Repositories\MeasurementFileRepository();
+        $mfRepo->markAnalyzed($fileId, $userId);
+
+        // redireciona de volta (página anterior)
+        $back = $_SERVER['HTTP_REFERER'] ?? '/operations';
+        header('Location: ' . $back);
+    }
 }

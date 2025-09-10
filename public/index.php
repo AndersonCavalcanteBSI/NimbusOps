@@ -32,5 +32,4 @@ $router->post('/measurements/{id}/analyze', fn(string $id) => (new \App\Controll
 $router->get('/measurements/upload', fn() => (new MeasurementController())->create());
 $router->post('/measurements/upload', fn() => (new MeasurementController())->store());
 
-
 $router->dispatch();

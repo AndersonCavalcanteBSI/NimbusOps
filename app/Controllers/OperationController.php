@@ -47,13 +47,36 @@ final class OperationController extends Controller
 
     public function show(int $id): void
     {
-        $op = $this->repo->find($id);
+        $op = $this->repo->findWithMetrics($id);
         if (!$op) {
             http_response_code(404);
             echo 'Operação não encontrada';
             return;
         }
+
+        // histórico geral da operação (já existia)
         $history = $this->hist->listByOperation($id);
-        $this->view('operations/show', ['op' => $op, 'history' => $history]);
+
+        // arquivos de medição + pendências
+        $mfRepo  = new \App\Repositories\MeasurementFileRepository();
+        $mfhRepo = new \App\Repositories\MeasurementFileHistoryRepository();
+
+        $files = $mfRepo->listByOperation($id);
+        $pending = $mfRepo->hasPendingAnalysis($id);
+
+        // histórico por arquivo (mapeado por fileId)
+        $fileIds = array_map(fn($f) => (int)$f['id'], $files);
+        $filesHistory = $mfhRepo->listByFiles($fileIds);
+
+        // status exibido: "Em aberto" se tiver arquivo pendente; senão mantém o da operação
+        $displayStatus = $pending ? 'Em aberto' : ucfirst($op['status']);
+
+        $this->view('operations/show', [
+            'op'            => $op,
+            'history'       => $history,
+            'files'         => $files,
+            'filesHistory'  => $filesHistory,
+            'displayStatus' => $displayStatus,
+        ]);
     }
 }

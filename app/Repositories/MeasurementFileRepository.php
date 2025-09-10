@@ -43,4 +43,12 @@ final class MeasurementFileRepository
             throw $e;
         }
     }
+
+    public function create(int $opId, string $filename, string $storagePath, ?int $uploadedBy): int
+    {
+        $pdo = Database::pdo();
+        $st = $pdo->prepare('INSERT INTO measurement_files (operation_id, filename, storage_path, uploaded_by) VALUES (:op,:fn,:sp,:ub)');
+        $st->execute([':op' => $opId, ':fn' => $filename, ':sp' => $storagePath, ':ub' => $uploadedBy]);
+        return (int)$pdo->lastInsertId();
+    }
 }

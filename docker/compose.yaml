@@ -1,0 +1,25 @@
+services:
+app:
+image: php:8.2-apache
+container_name: nimbusops_app
+volumes:
+- ../:/var/www/html
+working_dir: /var/www/html
+ports:
+- "8080:80"
+environment:
+- APACHE_DOCUMENT_ROOT=/var/www/html/public
+command: >
+bash -lc "\
+a2enmod rewrite && \
+sed -ri -e 's!/var/www/html!/var/www/html/public!g' /etc/apache2/sites-available/000-default.conf && \
+apache2-foreground"
+db:
+image: mysql:8
+container_name: nimbusops_db
+environment:
+MYSQL_ROOT_PASSWORD: root
+MYSQL_DATABASE: nimbusops
+ports:
+- "33060:3306"
+command: ["--default-authentication-plugin=mysql_native_password"]

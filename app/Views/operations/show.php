@@ -62,7 +62,10 @@ $fmt = function (?string $d): string {
                     <ul class="list-group list-group-flush">
                         <?php foreach ($history as $h): ?>
                             <li class="list-group-item">
-                                <div class="small text-muted"><?= htmlspecialchars($h['created_at']) ?></div>
+                                <!--<div class="small text-muted"><?= htmlspecialchars($h['created_at']) ?></div>-->
+                                <div class="small text-muted">
+                                    <?= htmlspecialchars($h['created_at']) ?><?= !empty($h['user_name']) ? ' • por ' . htmlspecialchars($h['user_name']) : '' ?>
+                                </div>
                                 <strong><?= htmlspecialchars($h['action']) ?></strong>
                                 <div><?= nl2br(htmlspecialchars($h['notes'])) ?></div>
                             </li>

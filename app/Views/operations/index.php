@@ -3,22 +3,17 @@
 <h2 class="mb-3">Operações</h2>
 
 <form class="row g-2 mb-3" method="get">
-    <div class="col-md-4">
-        <input
-            type="text"
-            name="q"
-            value="<?= htmlspecialchars($filters['q'] ?? '') ?>"
-            class="form-control"
-            placeholder="Buscar por código ou título">
+    <div class="col-md-5">
+        <input type="text" name="q" value="<?= htmlspecialchars($filters['q'] ?? '') ?>" class="form-control" placeholder="Buscar por nome/código">
     </div>
 
     <div class="col-md-2">
         <select name="status" class="form-select">
             <option value="">Status (todos)</option>
             <?php foreach (['draft', 'active', 'settled', 'canceled'] as $s): ?>
-                <option
-                    value="<?= $s ?>"
-                    <?= (($filters['status'] ?? '') === $s) ? 'selected' : '' ?>><?= ucfirst($s) ?></option>
+                <option value="<?= $s ?>" <?= (($filters['status'] ?? '') === $s) ? 'selected' : '' ?>>
+                    <?= ucfirst($s) ?>
+                </option>
             <?php endforeach; ?>
         </select>
     </div>
@@ -29,7 +24,7 @@
     <div class="col-md-2">
         <input type="date" name="to" value="<?= htmlspecialchars($filters['to'] ?? '') ?>" class="form-control">
     </div>
-    <div class="col-md-2 d-grid">
+    <div class="col-md-1 d-grid">
         <button class="btn btn-primary">Filtrar</button>
     </div>
 </form>
@@ -43,40 +38,42 @@ $total = $result['total'] ?? 0;
 $pages  = max(1, (int)ceil($total / $per));
 $invert = ($dir === 'asc') ? 'desc' : 'asc';
 $qs = fn($o) => http_build_query(array_merge($_GET, ['order' => $o, 'dir' => $invert, 'page' => 1]));
+
+$fmt = function (?string $d): string {
+    if (!$d) return '-';
+    $ts = strtotime($d);
+    return $ts ? date('d/m/Y', $ts) : '-';
+};
 ?>
 
 <div class="table-responsive">
     <table class="table table-hover align-middle">
         <thead>
             <tr>
-                <th><a href="?<?= $qs('id') ?>">#</a></th>
-                <th><a href="?<?= $qs('code') ?>">Código</a></th>
-                <th><a href="?<?= $qs('title') ?>">Título</a></th>
+                <th><a href="?<?= $qs('title') ?>">Nome</a></th>
                 <th><a href="?<?= $qs('status') ?>">Status</a></th>
-                <th><a href="?<?= $qs('due_date') ?>">Vencimento</a></th>
-                <th class="text-end"><a href="?<?= $qs('amount') ?>">Valor</a></th>
-                <th></th>
+                <th><a href="?<?= $qs('due_date') ?>">Próxima medição</a></th>
+                <th><a href="?<?= $qs('last_measurement_at') ?>">Última medição</a></th>
+                <th class="text-end">Detalhes</th>
             </tr>
         </thead>
         <tbody>
             <?php if (!$data): ?>
                 <tr>
-                    <td colspan="7" class="text-center text-muted">Nenhuma operação encontrada.</td>
+                    <td colspan="5" class="text-center text-muted">Nenhuma operação encontrada.</td>
                 </tr>
                 <?php else: foreach ($data as $row): ?>
                     <tr>
-                        <td><?= (int)$row['id'] ?></td>
-                        <td><?= htmlspecialchars($row['code']) ?></td>
                         <td><?= htmlspecialchars($row['title']) ?></td>
                         <td>
                             <span class="badge text-bg-<?= $row['status'] === 'active' ? 'success' : ($row['status'] === 'draft' ? 'secondary' : ($row['status'] === 'settled' ? 'info' : 'danger')) ?>">
                                 <?= ucfirst($row['status']) ?>
                             </span>
                         </td>
-                        <td><?= htmlspecialchars($row['due_date'] ?? '-') ?></td>
-                        <td class="text-end">R$ <?= number_format((float)$row['amount'], 2, ',', '.') ?></td>
+                        <td><?= $fmt($row['due_date'] ?? null) ?></td>
+                        <td><?= $fmt($row['last_measurement_at'] ?? null) ?></td>
                         <td class="text-end">
-                            <a class="btn btn-sm btn-outline-primary" href="/operations/<?= (int)$row['id'] ?>">Detalhes</a>
+                            <a class="btn btn-sm btn-outline-primary" href="/operations/<?= (int)$row['id'] ?>">Abrir</a>
                         </td>
                     </tr>
             <?php endforeach;

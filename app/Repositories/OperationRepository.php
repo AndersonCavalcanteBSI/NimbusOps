@@ -12,7 +12,9 @@ final class OperationRepository
     public function paginate(array $filters, int $page = 1, int $perPage = 10, string $orderBy = 'created_at', string $dir = 'desc'): array
     {
         $pdo = Database::pdo();
-        $validOrder = ['id', 'code', 'title', 'status', 'due_date', 'amount', 'created_at'];
+
+        // agora suportamos ordenar por "last_measurement_at"
+        $validOrder = ['id', 'code', 'title', 'status', 'due_date', 'amount', 'created_at', 'last_measurement_at'];
         if (!in_array($orderBy, $validOrder, true)) {
             $orderBy = 'created_at';
         }
@@ -20,46 +22,66 @@ final class OperationRepository
 
         $where = [];
         $params = [];
+
         if ($q = trim((string)($filters['q'] ?? ''))) {
-            $where[] = '(code LIKE :q OR title LIKE :q)';
+            $where[] = '(o.code LIKE :q OR o.title LIKE :q)';
             $params[':q'] = "%$q%";
         }
-        if ($s = ($filters['status'] ?? '')) {
-            $where[] = 'status = :status';
-            $params[':status'] = $s;
+        if ($status = ($filters['status'] ?? '')) {
+            $where[] = 'o.status = :status';
+            $params[':status'] = $status;
         }
         if ($from = ($filters['from'] ?? '')) {
-            $where[] = 'due_date >= :from';
+            $where[] = 'o.due_date >= :from';
             $params[':from'] = $from;
         }
         if ($to = ($filters['to'] ?? '')) {
-            $where[] = 'due_date <= :to';
+            $where[] = 'o.due_date <= :to';
             $params[':to'] = $to;
         }
 
-        $whereSql = $where ? 'WHERE ' . implode(' AND ', $where) : '';
-        $count = $pdo->prepare("SELECT COUNT(*) FROM operations $whereSql");
-        $count->execute($params);
-        $total = (int)$count->fetchColumn();
+        $whereSql = $where ? ('WHERE ' . implode(' AND ', $where)) : '';
+
+        // COUNT
+        $countStmt = $pdo->prepare("SELECT COUNT(*) FROM operations o $whereSql");
+        $countStmt->execute($params);
+        $total = (int)$countStmt->fetchColumn();
 
         $offset = max(0, ($page - 1) * $perPage);
-        $sql = "SELECT * FROM operations $whereSql ORDER BY $orderBy $dir LIMIT :limit OFFSET :offset";
+
+        // SELECT com subquery para última medição (action='measurement')
+        $sql = "
+            SELECT
+              o.*,
+              (
+                SELECT MAX(h.created_at)
+                FROM operation_history h
+                WHERE h.operation_id = o.id AND h.action = 'measurement'
+              ) AS last_measurement_at
+            FROM operations o
+            $whereSql
+            ORDER BY $orderBy $dir
+            LIMIT :limit OFFSET :offset
+        ";
+
         $stmt = $pdo->prepare($sql);
-        foreach ($params as $k => $v) $stmt->bindValue($k, $v);
+        foreach ($params as $k => $v) {
+            $stmt->bindValue($k, $v);
+        }
         $stmt->bindValue(':limit', $perPage, \PDO::PARAM_INT);
         $stmt->bindValue(':offset', $offset, \PDO::PARAM_INT);
         $stmt->execute();
         $data = $stmt->fetchAll();
 
-        return ['data' => $data, 'total' => $total, 'page' => $page, 'per_page' => $perPage];
+        return compact('data') + ['total' => $total, 'page' => $page, 'per_page' => $perPage];
     }
 
     public function find(int $id): ?array
     {
         $pdo = Database::pdo();
-        $st = $pdo->prepare('SELECT * FROM operations WHERE id=:id');
-        $st->execute([':id' => $id]);
-        $row = $st->fetch();
+        $stmt = $pdo->prepare('SELECT * FROM operations WHERE id = :id');
+        $stmt->execute([':id' => $id]);
+        $row = $stmt->fetch();
         return $row ?: null;
     }
 }

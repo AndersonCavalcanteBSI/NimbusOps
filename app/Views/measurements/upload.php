@@ -2,7 +2,7 @@
 
 <h2 class="mb-3">Upload de Medição</h2>
 <?php if (isset($_GET['ok'])): ?>
-    <div class="alert alert-success">Arquivo enviado com sucesso.</div>
+    <div class="alert alert-success">Arquivo enviado, status atualizado para <strong>Pendente</strong> e responsável notificado.</div>
 <?php endif; ?>
 
 <form class="row g-3" method="post" action="/measurements/upload" enctype="multipart/form-data">

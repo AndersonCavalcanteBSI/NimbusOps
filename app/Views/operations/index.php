@@ -66,9 +66,19 @@ $fmt = function (?string $d): string {
                     <tr>
                         <td><?= htmlspecialchars($row['title']) ?></td>
                         <td>
-                            <span class="badge text-bg-<?= $row['status'] === 'active' ? 'success' : ($row['status'] === 'draft' ? 'secondary' : ($row['status'] === 'settled' ? 'info' : 'danger')) ?>">
+                            <!--<span class="badge text-bg-<?= $row['status'] === 'active' ? 'success' : ($row['status'] === 'draft' ? 'secondary' : ($row['status'] === 'settled' ? 'info' : 'danger')) ?>">
                                 <?= ucfirst($row['status']) ?>
-                            </span>
+                            </span>-->
+                            <?php
+                            $cls = match ($row['status']) {
+                                'active' => 'success',
+                                'draft' => 'secondary',
+                                'settled' => 'info',
+                                'pending' => 'warning',
+                                default => 'danger',
+                            };
+                            ?>
+                            <span class="badge text-bg-<?= $cls ?>"><?= ucfirst($row['status']) ?></span>
                         </td>
                         <td><?= $fmt($row['due_date'] ?? null) ?></td>
                         <td><?= $fmt($row['last_measurement_at'] ?? null) ?></td>

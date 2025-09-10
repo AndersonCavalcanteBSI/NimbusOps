@@ -27,6 +27,7 @@ $router = new Router();
 $router->get('/', fn() => (new HomeController())->index());
 $router->get('/operations', fn() => (new OperationController())->index());
 $router->get('/operations/{id}', fn(string $id) => (new OperationController())->show((int)$id));
+$router->post('/measurements/{id}/analyze', fn(string $id) => (new \App\Controllers\OperationController())->analyzeFile((int)$id));
 
 
 $router->dispatch();

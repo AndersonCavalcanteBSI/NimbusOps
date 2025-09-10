@@ -109,10 +109,17 @@ $fmt = function (?string $d): string {
                                         </td>
                                         <td><?= $fmt($f['uploaded_at'] ?? null) ?></td>
                                         <td>
-                                            <?php if ($pending): ?>
+                                            <?php if (empty($f['analyzed_at'])): ?>
                                                 <span class="badge text-bg-warning">Pendente</span>
+                                                <?php if (\App\Security\CurrentUser::isDev()): ?>
+                                                    <form action="/measurements/<?= (int)$f['id'] ?>/analyze" method="post" class="d-inline ms-2">
+                                                        <button class="btn btn-sm btn-success">Marcar como analisado</button>
+                                                    </form>
+                                                <?php endif; ?>
                                             <?php else: ?>
-                                                <span class="badge text-bg-success">Analisado em <?= $fmt($f['analyzed_at'] ?? null) ?></span>
+                                                <span class="badge text-bg-success">
+                                                    Analisado em <?= $fmt($f['analyzed_at'] ?? null) ?>
+                                                </span>
                                             <?php endif; ?>
                                         </td>
                                         <td class="text-end">
@@ -132,6 +139,9 @@ $fmt = function (?string $d): string {
                                                     <?php foreach ($histList as $fh): ?>
                                                         <li class="list-group-item">
                                                             <div class="small text-muted"><?= htmlspecialchars($fh['created_at']) ?></div>
+                                                            <?php if (!empty($fh['user_name'])): ?>
+                                                                • por <?= htmlspecialchars($fh['user_name']) ?>
+                                                            <?php endif; ?>
                                                             <strong><?= htmlspecialchars($fh['action']) ?></strong>
                                                             <div><?= nl2br(htmlspecialchars($fh['notes'])) ?></div>
                                                         </li>

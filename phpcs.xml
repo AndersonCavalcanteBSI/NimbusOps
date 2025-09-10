@@ -1,0 +1,6 @@
+<?xml version="1.0"?>
+<ruleset name="NimbusOps">
+<rule ref="PSR12" />
+<file>app</file>
+<file>core</file>
+</ruleset>

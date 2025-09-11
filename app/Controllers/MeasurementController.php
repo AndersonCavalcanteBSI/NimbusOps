@@ -6,7 +6,6 @@ namespace App\Controllers;
 
 use Core\Controller;
 use Core\Mailer;
-use Core\Env;
 use App\Repositories\OperationRepository;
 use App\Repositories\OperationHistoryRepository;
 use App\Repositories\MeasurementFileRepository;
@@ -74,37 +73,39 @@ final class MeasurementController extends Controller
         $publicPath = '/uploads/ops/' . $opId . '/' . $new;
         $fileId = (new MeasurementFileRepository())->create($opId, $name, $publicPath, null);
 
-        // status -> pending (já existente)
+        // status -> pending
         $pdo = \Core\Database::pdo();
         $pdo->prepare('UPDATE operations SET status = "pending" WHERE id = :id')->execute([':id' => $opId]);
         (new OperationHistoryRepository())->log($opId, 'status_changed', 'Arquivo de medição adicionado: operação marcada como pending.');
 
-        // criar etapa 1 (revisor = responsável)
+        // criar etapa 1 (revisor = responsável), se houver
         $responsibleId = (int)($op['responsible_user_id'] ?? 0);
         if ($responsibleId > 0) {
             (new MeasurementReviewRepository())->createStage($fileId, 1, $responsibleId);
         }
 
-        // notificar responsável com link para analisar
+        // notificar responsável com link para analisar (1ª etapa)
         if ($responsibleId > 0) {
             $u = (new UserRepository())->findBasic($responsibleId);
             if ($u) {
                 $base = rtrim($_ENV['APP_URL'] ?? '', '/');
-                $link = $base . '/measurements/' . $fileId . '/review';
+                $link = $base . '/measurements/' . $fileId . '/review/1';
                 $subject = 'Nova medição para a operação #' . $opId;
                 $html = '<p>Olá, ' . htmlspecialchars($u['name']) . '</p>'
                     . '<p>Um novo arquivo de medição foi adicionado à operação <strong>#' . $opId . '</strong> (' . htmlspecialchars($op['title']) . ').</p>'
                     . '<p>Status da operação: <strong>Pendente</strong>.</p>'
                     . '<p><a href="' . htmlspecialchars($link) . '">Clique aqui para analisar</a>.</p>';
                 try {
-                    \Core\Mailer::send($u['email'], $u['name'], $subject, $html);
+                    Mailer::send($u['email'], $u['name'], $subject, $html);
                 } catch (\Throwable) {
                 }
             }
         }
+
         header('Location: /measurements/upload?ok=1');
         exit;
     }
+
     private function findOperationIdByFile(int $fileId): ?int
     {
         $pdo = \Core\Database::pdo();
@@ -114,10 +115,12 @@ final class MeasurementController extends Controller
         return $opId ? (int)$opId : null;
     }
 
-    /** GET: Mostra formulário de análise (estágio 1) */
-    public function reviewForm(int $fileId): void
+    /** GET: Mostra formulário de análise (estágio N) */
+    public function reviewForm(int $fileId, int $stage = 1): void
     {
         $pdo = \Core\Database::pdo();
+
+        // arquivo
         $st = $pdo->prepare('SELECT * FROM measurement_files WHERE id = :id LIMIT 1');
         $st->execute([':id' => $fileId]);
         $file = $st->fetch();
@@ -127,95 +130,115 @@ final class MeasurementController extends Controller
             return;
         }
 
-        // carrega info da etapa 1
-        $mrRepo = new \App\Repositories\MeasurementReviewRepository();
-        $mr = $mrRepo->getStage($fileId, 1);
-        if (!$mr) {
-            // define revisor como responsável da operação
-            $opStmt = $pdo->prepare('SELECT responsible_user_id FROM operations WHERE id = :op');
-            $opStmt->execute([':op' => (int)$file['operation_id']]);
-            $responsibleId = (int)($opStmt->fetchColumn() ?: 0);
+        $mrRepo = new MeasurementReviewRepository();
+        $mr = $mrRepo->getStage($fileId, $stage);
 
-            if ($responsibleId <= 0) {
-                // fallback: escolha um usuário padrão (ex.: 1) ou mostre msg amigável
-                $responsibleId = 1;
+        // Fallback: cria a etapa se estiver faltando
+        if (!$mr) {
+            $opSt = $pdo->prepare('SELECT * FROM operations WHERE id = :op');
+            $opSt->execute([':op' => (int)$file['operation_id']]);
+            $op = $opSt->fetch();
+
+            $reviewerId = null;
+            if ($stage === 1) {
+                $reviewerId = (int)($op['responsible_user_id'] ?? 0);
+            } elseif ($stage === 2) {
+                $reviewerId = (int)($op['stage2_reviewer_user_id'] ?? 0);
             }
 
-            $mrRepo->createStage($fileId, 1, $responsibleId);
-            $mr = $mrRepo->getStage($fileId, 1);
-        }
+            // fallback: primeiro usuário ativo
+            if (!$reviewerId) {
+                $reviewerId = (int)($pdo->query('SELECT id FROM users WHERE active = 1 ORDER BY id ASC LIMIT 1')->fetchColumn() ?: 0);
+            }
 
-
-        // (opcional) checar se o usuário atual é o revisor designado
-        if (class_exists('\App\Security\CurrentUser')) {
-            $me = \App\Security\CurrentUser::id();
-            if ($me && $me !== (int)$mr['reviewer_user_id']) {
-                http_response_code(403);
-                echo 'Você não é o revisor desta etapa';
+            if ($reviewerId) {
+                $mrRepo->createStage($fileId, $stage, $reviewerId);
+                $mr = $mrRepo->getStage($fileId, $stage);
+            } else {
+                http_response_code(400);
+                echo 'Etapa não encontrada: defina o revisor da etapa na operação.';
                 return;
             }
         }
 
-        $opId = $this->findOperationIdByFile($fileId);
+        // revisões anteriores
+        $prev = $mrRepo->listByFile($fileId);
+
         $this->view('measurements/review', [
-            'file' => $file,
-            'review' => $mr,
-            'operationId' => $opId,
+            'file'        => $file,
+            'review'      => $mr,
+            'operationId' => (int)$file['operation_id'],
+            'stage'       => $stage,
+            'previous'    => $prev,
         ]);
     }
 
-    /** POST: Recebe a decisão (Aprovar/Reprovar) com observações */
-    public function reviewSubmit(int $fileId): void
+    /** POST: Recebe decisão (Aprovar/Reprovar) com observações */
+    public function reviewSubmit(int $fileId, int $stage = 1): void
     {
         $decision = ($_POST['decision'] ?? '') === 'approve' ? 'approved' : 'rejected';
-        $notes = trim((string)($_POST['notes'] ?? ''));
+        $notes    = trim((string)($_POST['notes'] ?? ''));
 
-        $mrRepo = new \App\Repositories\MeasurementReviewRepository();
-        $opRepo = new \App\Repositories\OperationRepository();
-        $ohRepo = new \App\Repositories\OperationHistoryRepository();
-        $userRepo = new \App\Repositories\UserRepository();
+        $mrRepo   = new MeasurementReviewRepository();
+        $opRepo   = new OperationRepository();
+        $ohRepo   = new OperationHistoryRepository();
+        $userRepo = new UserRepository();
+        $pdo      = \Core\Database::pdo();
 
-        $stageRow = $mrRepo->getStage($fileId, 1);
+        // Se a etapa não existir (ex.: upload antigo), cria aqui também
+        $stageRow = $mrRepo->getStage($fileId, $stage);
         if (!$stageRow) {
-            http_response_code(400);
-            echo 'Etapa 1 não encontrada';
-            return;
-        }
-
-        // (opcional) check revisor atual
-        if (class_exists('\App\Security\CurrentUser')) {
-            $me = \App\Security\CurrentUser::id();
-            if ($me && $me !== (int)$stageRow['reviewer_user_id']) {
-                http_response_code(403);
-                echo 'Você não é o revisor desta etapa';
-                return;
+            $opIdTmp = (int)$pdo->query('SELECT operation_id FROM measurement_files WHERE id=' . (int)$fileId)->fetchColumn();
+            if ($opIdTmp) {
+                $opTmp = $opRepo->find($opIdTmp);
+                $reviewerId = null;
+                if ($stage === 1) {
+                    $reviewerId = (int)($opTmp['responsible_user_id'] ?? 0);
+                } elseif ($stage === 2) {
+                    $reviewerId = (int)($opTmp['stage2_reviewer_user_id'] ?? 0);
+                }
+                if (!$reviewerId) {
+                    $reviewerId = (int)($pdo->query('SELECT id FROM users WHERE active = 1 ORDER BY id ASC LIMIT 1')->fetchColumn() ?: 0);
+                }
+                if ($reviewerId) {
+                    $mrRepo->createStage($fileId, $stage, $reviewerId);
+                    $stageRow = $mrRepo->getStage($fileId, $stage);
+                }
             }
         }
 
-        $mrRepo->decide($fileId, 1, $decision, $notes);
-        $opId = $this->findOperationIdByFile($fileId);
+        if (!$stageRow) {
+            http_response_code(400);
+            echo 'Etapa não encontrada';
+            return;
+        }
+
+        $mrRepo->decide($fileId, $stage, $decision, $notes);
+
+        // descobre a operação
+        $opId = (int)$pdo->query('SELECT operation_id FROM measurement_files WHERE id=' . (int)$fileId)->fetchColumn();
         if (!$opId) {
             http_response_code(500);
-            echo 'Operação não encontrada para o arquivo';
+            echo 'Operação não encontrada';
             return;
         }
         $op = $opRepo->find($opId);
 
         if ($decision === 'rejected') {
-            // Atualiza operação para "rejected" e notifica usuário pré-determinado
-            $pdo = \Core\Database::pdo();
+            // Recusa: seta status e notifica destinatário pré-definido
             $pdo->prepare('UPDATE operations SET status = "rejected" WHERE id = :id')->execute([':id' => $opId]);
-            $ohRepo->log($opId, 'status_changed', 'Medição reprovada na primeira validação. Observações: ' . $notes);
+            $ohRepo->log($opId, 'status_changed', "Medição reprovada na {$stage}ª validação. Observações: " . $notes);
 
             $rejId = (int)($op['rejection_notify_user_id'] ?? 0);
             if ($rejId) {
                 $u = $userRepo->findBasic($rejId);
                 if ($u) {
                     $subject = 'Medição reprovada — Operação #' . $opId;
-                    $html = '<p>A medição da operação <strong>#' . $opId . '</strong> (' . htmlspecialchars($op['title']) . ') foi <strong>reprovada</strong> na 1ª validação.</p>'
+                    $html = '<p>A medição da operação <strong>#' . $opId . '</strong> (' . htmlspecialchars($op['title'])
+                        . ') foi <strong>reprovada</strong> na ' . $stage . 'ª validação.</p>'
                         . '<p><strong>Observações:</strong><br>' . nl2br(htmlspecialchars($notes)) . '</p>';
                     try {
-                        \Core\Mailer::send($u['email'], $u['name'], $subject, $html);
+                        Mailer::send($u['email'], $u['name'], $subject, $html);
                     } catch (\Throwable) {
                     }
                 }
@@ -225,8 +248,35 @@ final class MeasurementController extends Controller
             exit;
         }
 
-        // Aprovada na etapa 1: apenas registra; a fase 4 cuidará da próxima etapa
-        $ohRepo->log($opId, 'measurement', 'Medição aprovada na 1ª validação. Observações: ' . $notes);
+        // Aprovado neste estágio
+        if ($stage === 1) {
+            // Cria etapa 2 e notifica o segundo revisor
+            $stage2UserId = (int)($op['stage2_reviewer_user_id'] ?? 0);
+            if ($stage2UserId) {
+                if (!$mrRepo->getStage($fileId, 2)) {
+                    $mrRepo->createStage($fileId, 2, $stage2UserId);
+                }
+                if ($u = $userRepo->findBasic($stage2UserId)) {
+                    $base = rtrim($_ENV['APP_URL'] ?? '', '/');
+                    $link = $base . '/measurements/' . $fileId . '/review/2';
+                    $subject = '2ª validação — nova medição (Operação #' . $opId . ')';
+                    $html = '<p>Olá, ' . htmlspecialchars($u['name']) . '</p>'
+                        . '<p>Há uma nova medição para análise na <strong>2ª validação</strong> da operação '
+                        . '<strong>#' . $opId . '</strong> (' . htmlspecialchars($op['title']) . ').</p>'
+                        . '<p><a href="' . htmlspecialchars($link) . '">Clique aqui para analisar</a>.</p>';
+                    try {
+                        Mailer::send($u['email'], $u['name'], $subject, $html);
+                    } catch (\Throwable) {
+                    }
+                }
+            }
+            $ohRepo->log($opId, 'measurement', 'Medição aprovada na 1ª validação. Observações: ' . $notes);
+        } elseif ($stage === 2) {
+            // Aprovada na 2ª validação (etapas seguintes serão tratadas depois)
+            $ohRepo->log($opId, 'measurement', 'Medição aprovada na 2ª validação. Observações: ' . $notes);
+        }
+
         header('Location: /operations/' . $opId);
+        exit;
     }
 }

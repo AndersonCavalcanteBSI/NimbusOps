@@ -2,7 +2,6 @@
 
 declare(strict_types=1);
 
-
 use Core\Env;
 use Core\Router;
 use App\Middlewares\SecurityHeadersMiddleware;
@@ -11,18 +10,14 @@ use App\Controllers\HomeController;
 use App\Controllers\OperationController;
 use App\Controllers\MeasurementController;
 
-
 require __DIR__ . '/../vendor/autoload.php';
 Env::load(dirname(__DIR__));
-
 
 // Middlewares globais
 (new SecurityHeadersMiddleware())->handle();
 (new CORSMiddleware())->handle();
 
-
 $router = new Router();
-
 
 // Rotas
 $router->get('/', fn() => (new HomeController())->index());
@@ -33,6 +28,9 @@ $router->get('/measurements/upload', fn() => (new MeasurementController())->crea
 $router->post('/measurements/upload', fn() => (new MeasurementController())->store());
 $router->get('/measurements/{id}/review', fn(string $id) => (new MeasurementController())->reviewForm((int)$id));
 $router->post('/measurements/{id}/review', fn(string $id) => (new MeasurementController())->reviewSubmit((int)$id));
-
+$router->get('/measurements/{id}/analyzed', function (string $id) {
+    header('Location: /measurements/' . (int)$id . '/review');
+    exit;
+});
 
 $router->dispatch();

@@ -77,7 +77,6 @@ final class MeasurementController extends Controller
         // status -> pending (já existente)
         $pdo = \Core\Database::pdo();
         $pdo->prepare('UPDATE operations SET status = "pending" WHERE id = :id')->execute([':id' => $opId]);
-        $pdo->prepare('UPDATE operations SET status = "pending" WHERE id = :id')->execute([':id' => $opId]);
         (new OperationHistoryRepository())->log($opId, 'status_changed', 'Arquivo de medição adicionado: operação marcada como pending.');
 
         // criar etapa 1 (revisor = responsável)
@@ -104,6 +103,7 @@ final class MeasurementController extends Controller
             }
         }
         header('Location: /measurements/upload?ok=1');
+        exit;
     }
     private function findOperationIdByFile(int $fileId): ?int
     {
@@ -128,12 +128,23 @@ final class MeasurementController extends Controller
         }
 
         // carrega info da etapa 1
-        $mr = (new \App\Repositories\MeasurementReviewRepository())->getStage($fileId, 1);
+        $mrRepo = new \App\Repositories\MeasurementReviewRepository();
+        $mr = $mrRepo->getStage($fileId, 1);
         if (!$mr) {
-            http_response_code(400);
-            echo 'Etapa 1 não inicializada';
-            return;
+            // define revisor como responsável da operação
+            $opStmt = $pdo->prepare('SELECT responsible_user_id FROM operations WHERE id = :op');
+            $opStmt->execute([':op' => (int)$file['operation_id']]);
+            $responsibleId = (int)($opStmt->fetchColumn() ?: 0);
+
+            if ($responsibleId <= 0) {
+                // fallback: escolha um usuário padrão (ex.: 1) ou mostre msg amigável
+                $responsibleId = 1;
+            }
+
+            $mrRepo->createStage($fileId, 1, $responsibleId);
+            $mr = $mrRepo->getStage($fileId, 1);
         }
+
 
         // (opcional) checar se o usuário atual é o revisor designado
         if (class_exists('\App\Security\CurrentUser')) {
@@ -211,7 +222,7 @@ final class MeasurementController extends Controller
             }
 
             header('Location: /operations/' . $opId);
-            return;
+            exit;
         }
 
         // Aprovada na etapa 1: apenas registra; a fase 4 cuidará da próxima etapa

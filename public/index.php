@@ -31,5 +31,8 @@ $router->get('/operations/{id}', fn(string $id) => (new OperationController())->
 $router->post('/measurements/{id}/analyze', fn(string $id) => (new \App\Controllers\OperationController())->analyzeFile((int)$id));
 $router->get('/measurements/upload', fn() => (new MeasurementController())->create());
 $router->post('/measurements/upload', fn() => (new MeasurementController())->store());
+$router->get('/measurements/{id}/review', fn(string $id) => (new MeasurementController())->reviewForm((int)$id));
+$router->post('/measurements/{id}/review', fn(string $id) => (new MeasurementController())->reviewSubmit((int)$id));
+
 
 $router->dispatch();

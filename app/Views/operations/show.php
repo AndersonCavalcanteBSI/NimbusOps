@@ -116,7 +116,8 @@ $fmt = function (?string $d): string {
                                                 <span class="badge text-bg-warning">Pendente</span>
                                                 <?php if (\App\Security\CurrentUser::isDev()): ?>
                                                     <form action="/measurements/<?= (int)$f['id'] ?>/analyze" method="post" class="d-inline ms-2">
-                                                        <button class="btn btn-sm btn-success">Marcar como analisado</button>
+                                                        <!--<button class="btn btn-sm btn-success">Marcar como analisado</button>-->
+                                                        <a class="btn btn-sm btn-primary" href="/measurements/<?= (int)$f['id'] ?>/review">Analisar</a>
                                                     </form>
                                                 <?php endif; ?>
                                             <?php else: ?>

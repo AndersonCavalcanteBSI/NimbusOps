@@ -117,7 +117,12 @@ $fmt = function (?string $d): string {
                                                 <?php if (\App\Security\CurrentUser::isDev()): ?>
                                                     <form action="/measurements/<?= (int)$f['id'] ?>/analyze" method="post" class="d-inline ms-2">
                                                         <!--<button class="btn btn-sm btn-success">Marcar como analisado</button>-->
-                                                        <a class="btn btn-sm btn-primary" href="/measurements/<?= (int)$f['id'] ?>/review">Analisar</a>
+                                                        <!--<a class="btn btn-sm btn-primary" href="/measurements/<?= (int)$f['id'] ?>/review">Analisar</a>-->
+                                                        <a class="btn btn-sm btn-primary"
+                                                            href="/measurements/<?= (int)$f['id'] ?>/review/<?= (int)($f['next_stage'] ?? 1) ?>">
+                                                            Analisar<?= isset($f['next_stage']) ? ' (' . $f['next_stage'] . 'ª)' : '' ?>
+                                                        </a>
+
                                                     </form>
                                                 <?php endif; ?>
                                             <?php else: ?>

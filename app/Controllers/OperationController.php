@@ -2,14 +2,11 @@
 
 declare(strict_types=1);
 
-
 namespace App\Controllers;
-
 
 use Core\Controller;
 use App\Repositories\OperationRepository;
 use App\Repositories\OperationHistoryRepository;
-
 
 final class OperationController extends Controller
 {
@@ -17,7 +14,6 @@ final class OperationController extends Controller
         private readonly OperationRepository $repo = new OperationRepository(),
         private readonly OperationHistoryRepository $hist = new OperationHistoryRepository()
     ) {}
-
 
     public function index(): void
     {
@@ -27,48 +23,50 @@ final class OperationController extends Controller
             'from' => $_GET['from'] ?? '',
             'to' => $_GET['to'] ?? '',
         ];
-        $page = (int)($_GET['page'] ?? 1);
-        $per = min(50, max(5, (int)($_GET['per'] ?? 10)));
+        $page  = (int)($_GET['page'] ?? 1);
+        $per   = min(50, max(5, (int)($_GET['per'] ?? 10)));
         $order = $_GET['order'] ?? 'created_at';
-        $dir = $_GET['dir'] ?? 'desc';
+        $dir   = $_GET['dir'] ?? 'desc';
 
-
-        $result = $repo = $this->repo->paginate($filters, $page, $per, $order, $dir);
-
+        // remove a variável $repo redundante
+        $result = $this->repo->paginate($filters, $page, $per, $order, $dir);
 
         $this->view('operations/index', [
-            'result' => $result,
+            'result'  => $result,
             'filters' => $filters,
-            'order' => $order,
-            'dir' => $dir,
+            'order'   => $order,
+            'dir'     => $dir,
         ]);
     }
 
-
     public function show(int $id): void
     {
-        $op = $this->repo->findWithMetrics($id);
+        // Se não tiver findWithMetrics(), troque por find()
+        $op = method_exists($this->repo, 'findWithMetrics')
+            ? $this->repo->findWithMetrics($id)
+            : $this->repo->find($id);
+
         if (!$op) {
             http_response_code(404);
             echo 'Operação não encontrada';
             return;
         }
 
-        // histórico geral da operação (já existia)
         $history = $this->hist->listByOperation($id);
 
-        // arquivos de medição + pendências
-        $mfRepo  = new \App\Repositories\MeasurementFileRepository();
-        $mfhRepo = new \App\Repositories\MeasurementFileHistoryRepository();
-
-        $files = $mfRepo->listByOperation($id);
+        // Arquivos de medição
+        $mfRepo = new \App\Repositories\MeasurementFileRepository();
+        $files  = $mfRepo->listByOperation($id);
         $pending = $mfRepo->hasPendingAnalysis($id);
 
-        // histórico por arquivo (mapeado por fileId)
-        $fileIds = array_map(fn($f) => (int)$f['id'], $files);
-        $filesHistory = $mfhRepo->listByFiles($fileIds);
+        // Histórico por arquivo (se o repo existir)
+        $filesHistory = [];
+        if (class_exists(\App\Repositories\MeasurementFileHistoryRepository::class)) {
+            $mfhRepo = new \App\Repositories\MeasurementFileHistoryRepository();
+            $fileIds = array_map(fn($f) => (int)$f['id'], $files);
+            $filesHistory = $mfhRepo->listByFiles($fileIds);
+        }
 
-        // status exibido: "Em aberto" se tiver arquivo pendente; senão mantém o da operação
         $displayStatus = $pending ? 'Em aberto' : ucfirst($op['status']);
 
         $this->view('operations/show', [
@@ -80,27 +78,15 @@ final class OperationController extends Controller
         ]);
     }
 
+    /**
+     * Fluxo antigo: marque como analisado ⇒ REMOVER.
+     * Agora, a análise deve acontecer na tela /measurements/{fileId}/review.
+     * Mantemos este método apenas para compatibilidade, redirecionando.
+     */
     public function analyzeFile(int $fileId): void
     {
-        // proteção mínima: só em local e com DEV_USER_ID setado
-        if (($_ENV['APP_ENV'] ?? 'local') !== 'local') {
-            http_response_code(403);
-            echo 'forbidden';
-            return;
-        }
-
-        $userId = \App\Security\CurrentUser::id();
-        if (!$userId) {
-            http_response_code(403);
-            echo 'no user';
-            return;
-        }
-
-        $mfRepo = new \App\Repositories\MeasurementFileRepository();
-        $mfRepo->markAnalyzed($fileId, $userId);
-
-        // redireciona de volta (página anterior)
-        $back = $_SERVER['HTTP_REFERER'] ?? '/operations';
-        header('Location: ' . $back);
+        // Compatibilidade: em vez de marcar analisado, leva para a tela de revisão
+        header('Location: /measurements/' . (int)$fileId . '/review');
+        exit;
     }
 }

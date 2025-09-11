@@ -144,6 +144,8 @@ final class MeasurementController extends Controller
                 $reviewerId = (int)($op['responsible_user_id'] ?? 0);
             } elseif ($stage === 2) {
                 $reviewerId = (int)($op['stage2_reviewer_user_id'] ?? 0);
+            } elseif ($stage === 3) { // <<< ADIÇÃO FASE 5
+                $reviewerId = (int)($op['stage3_reviewer_user_id'] ?? 0);
             }
 
             // fallback: primeiro usuário ativo
@@ -196,6 +198,8 @@ final class MeasurementController extends Controller
                     $reviewerId = (int)($opTmp['responsible_user_id'] ?? 0);
                 } elseif ($stage === 2) {
                     $reviewerId = (int)($opTmp['stage2_reviewer_user_id'] ?? 0);
+                } elseif ($stage === 3) { // <<< ADIÇÃO FASE 5
+                    $reviewerId = (int)($opTmp['stage3_reviewer_user_id'] ?? 0);
                 }
                 if (!$reviewerId) {
                     $reviewerId = (int)($pdo->query('SELECT id FROM users WHERE active = 1 ORDER BY id ASC LIMIT 1')->fetchColumn() ?: 0);
@@ -248,7 +252,7 @@ final class MeasurementController extends Controller
             exit;
         }
 
-        // Aprovado neste estágio
+        // ===== Aprovado neste estágio =====
         if ($stage === 1) {
             // Cria etapa 2 e notifica o segundo revisor
             $stage2UserId = (int)($op['stage2_reviewer_user_id'] ?? 0);
@@ -272,8 +276,30 @@ final class MeasurementController extends Controller
             }
             $ohRepo->log($opId, 'measurement', 'Medição aprovada na 1ª validação. Observações: ' . $notes);
         } elseif ($stage === 2) {
-            // Aprovada na 2ª validação (etapas seguintes serão tratadas depois)
+            // FASE 5: cria etapa 3 e notifica o 3º revisor
+            $stage3UserId = (int)($op['stage3_reviewer_user_id'] ?? 0);
+            if ($stage3UserId) {
+                if (!$mrRepo->getStage($fileId, 3)) {
+                    $mrRepo->createStage($fileId, 3, $stage3UserId);
+                }
+                if ($u = $userRepo->findBasic($stage3UserId)) {
+                    $base = rtrim($_ENV['APP_URL'] ?? '', '/');
+                    $link = $base . '/measurements/' . $fileId . '/review/3';
+                    $subject = '3ª validação — nova medição (Operação #' . $opId . ')';
+                    $html = '<p>Olá, ' . htmlspecialchars($u['name']) . '</p>'
+                        . '<p>Há uma nova medição para análise na <strong>3ª validação</strong> da operação '
+                        . '<strong>#' . $opId . '</strong> (' . htmlspecialchars($op['title']) . ').</p>'
+                        . '<p><a href="' . htmlspecialchars($link) . '">Clique aqui para analisar</a>.</p>';
+                    try {
+                        Mailer::send($u['email'], $u['name'], $subject, $html);
+                    } catch (\Throwable) {
+                    }
+                }
+            }
             $ohRepo->log($opId, 'measurement', 'Medição aprovada na 2ª validação. Observações: ' . $notes);
+        } elseif ($stage === 3) {
+            // Etapa 3 concluída (aprovada) — registra e segue para a próxima fase (pagamentos) em fase futura
+            $ohRepo->log($opId, 'measurement', 'Medição aprovada na 3ª validação. Observações: ' . $notes);
         }
 
         header('Location: /operations/' . $opId);

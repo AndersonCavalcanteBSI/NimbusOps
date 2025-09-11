@@ -7,6 +7,7 @@ namespace App\Controllers;
 use Core\Controller;
 use App\Repositories\OperationRepository;
 use App\Repositories\OperationHistoryRepository;
+use App\Repositories\MeasurementReviewRepository;
 
 final class OperationController extends Controller
 {
@@ -59,6 +60,14 @@ final class OperationController extends Controller
         $files  = $mfRepo->listByOperation($id);
         $pending = $mfRepo->hasPendingAnalysis($id);
 
+        // >>> ADIÇÃO: calcula a próxima etapa pendente (1, 2, 3...) para cada arquivo
+        $revRepo = new MeasurementReviewRepository();
+        foreach ($files as &$f) {
+            $f['next_stage'] = $revRepo->nextPendingStage((int)$f['id']) ?? 1; // fallback para 1
+        }
+        unset($f);
+        // <<< FIM DA ADIÇÃO
+
         // Histórico por arquivo (se o repo existir)
         $filesHistory = [];
         if (class_exists(\App\Repositories\MeasurementFileHistoryRepository::class)) {
@@ -72,7 +81,7 @@ final class OperationController extends Controller
         $this->view('operations/show', [
             'op'            => $op,
             'history'       => $history,
-            'files'         => $files,
+            'files'         => $files,        // agora cada item tem 'next_stage'
             'filesHistory'  => $filesHistory,
             'displayStatus' => $displayStatus,
         ]);

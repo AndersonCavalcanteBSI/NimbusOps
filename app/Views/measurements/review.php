@@ -48,6 +48,47 @@
     </div>
 <?php endif; ?>
 
+<?php if ((int)$stage === 4): ?>
+    <div class="alert alert-info">
+        Esta é a <strong>4ª validação</strong> (gestão de pagamentos).
+        Registre os pagamentos e depois retorne aqui para <em>aprovar</em> esta etapa.
+    </div>
+
+    <p>
+        <a class="btn btn-outline-primary" href="/measurements/<?= (int)$file['id'] ?>/payments/new" target="_blank">
+            Registrar/Editar Pagamentos
+        </a>
+    </p>
+
+    <?php if (!empty($payments)): ?>
+        <div class="card mb-3">
+            <div class="card-header">Pagamentos já registrados</div>
+            <div class="table-responsive">
+                <table class="table table-sm mb-0">
+                    <thead>
+                        <tr>
+                            <th>Data</th>
+                            <th class="text-end">Valor</th>
+                            <th>Método</th>
+                            <th>Obs.</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php foreach ($payments as $p): ?>
+                            <tr>
+                                <td><?= htmlspecialchars($p['pay_date']) ?></td>
+                                <td class="text-end">R$ <?= number_format((float)$p['amount'], 2, ',', '.') ?></td>
+                                <td><?= htmlspecialchars($p['method'] ?? '-') ?></td>
+                                <td><?= htmlspecialchars($p['notes']  ?? '-') ?></td>
+                            </tr>
+                        <?php endforeach; ?>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    <?php endif; ?>
+<?php endif; ?>
+
 <form method="post" action="/measurements/<?= (int)$file['id'] ?>/review/<?= (int)$stage ?>">
     <div class="mb-3">
         <label class="form-label">Observações</label>

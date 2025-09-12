@@ -41,6 +41,10 @@ $router->post('/measurements/{id}/review', fn(string $id) => (new MeasurementCon
 $router->get('/measurements/{id}/review/{stage}', fn(string $id, string $stage) => (new MeasurementController())->reviewForm((int)$id, (int)$stage));
 $router->post('/measurements/{id}/review/{stage}', fn(string $id, string $stage) => (new MeasurementController())->reviewSubmit((int)$id, (int)$stage));
 
+// Pagamentos (Fase 6)
+$router->get('/measurements/{id}/payments/new', fn(string $id) => (new \App\Controllers\MeasurementController())->paymentsForm((int)$id));
+$router->post('/measurements/{id}/payments',    fn(string $id) => (new \App\Controllers\MeasurementController())->paymentsStore((int)$id));
+
 // Compat antigos
 $router->get('/measurements/{id}/analyzed', function (string $id) {
     header('Location: /measurements/' . (int)$id . '/review/1');

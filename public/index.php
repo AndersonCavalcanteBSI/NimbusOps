@@ -45,6 +45,10 @@ $router->post('/measurements/{id}/review/{stage}', fn(string $id, string $stage)
 $router->get('/measurements/{id}/payments/new', fn(string $id) => (new \App\Controllers\MeasurementController())->paymentsForm((int)$id));
 $router->post('/measurements/{id}/payments',    fn(string $id) => (new \App\Controllers\MeasurementController())->paymentsStore((int)$id));
 
+// Finalização (Fase 7)
+$router->get('/measurements/{id}/finalize', fn(string $id) => (new \App\Controllers\MeasurementController())->finalizeForm((int)$id));
+$router->post('/measurements/{id}/finalize', fn(string $id) => (new \App\Controllers\MeasurementController())->finalizeSubmit((int)$id));
+
 // Compat antigos
 $router->get('/measurements/{id}/analyzed', function (string $id) {
     header('Location: /measurements/' . (int)$id . '/review/1');

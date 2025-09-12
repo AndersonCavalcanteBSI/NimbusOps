@@ -146,6 +146,8 @@ final class MeasurementController extends Controller
                 $reviewerId = (int)($op['stage2_reviewer_user_id'] ?? 0);
             } elseif ($stage === 3) { // 3ª validação
                 $reviewerId = (int)($op['stage3_reviewer_user_id'] ?? 0);
+            } elseif ($stage === 4) { // 4ª validação (gestão de pagamentos)
+                $reviewerId = (int)($op['payment_manager_user_id'] ?? 0);
             }
 
             // fallback: primeiro usuário ativo
@@ -166,12 +168,20 @@ final class MeasurementController extends Controller
         // revisões anteriores
         $prev = $mrRepo->listByFile($fileId);
 
+        // Pagamentos (somente na 4ª etapa)
+        $payments = [];
+        if ($stage === 4 && class_exists(\App\Repositories\MeasurementPaymentRepository::class)) {
+            $pRepo = new \App\Repositories\MeasurementPaymentRepository();
+            $payments = $pRepo->listByMeasurement($fileId);
+        }
+
         $this->view('measurements/review', [
             'file'        => $file,
             'review'      => $mr,
             'operationId' => (int)$file['operation_id'],
             'stage'       => $stage,
             'previous'    => $prev,
+            'payments'    => $payments, // para a etapa 4
         ]);
     }
 
@@ -200,6 +210,8 @@ final class MeasurementController extends Controller
                     $reviewerId = (int)($opTmp['stage2_reviewer_user_id'] ?? 0);
                 } elseif ($stage === 3) {
                     $reviewerId = (int)($opTmp['stage3_reviewer_user_id'] ?? 0);
+                } elseif ($stage === 4) {
+                    $reviewerId = (int)($opTmp['payment_manager_user_id'] ?? 0);
                 }
                 if (!$reviewerId) {
                     $reviewerId = (int)($pdo->query('SELECT id FROM users WHERE active = 1 ORDER BY id ASC LIMIT 1')->fetchColumn() ?: 0);
@@ -298,27 +310,46 @@ final class MeasurementController extends Controller
             }
             $ohRepo->log($opId, 'measurement', 'Medição aprovada na 2ª validação. Observações: ' . $notes);
         } elseif ($stage === 3) {
-            // Etapa 3 concluída (aprovada): notificar gestor de pagamentos
+            // Etapa 3 aprovada: cria etapa 4 (gestão de pagamentos) e notifica para /review/4
             $ohRepo->log($opId, 'measurement', 'Medição aprovada na 3ª validação. Observações: ' . $notes);
 
             $pmId = (int)($op['payment_manager_user_id'] ?? 0);
             if ($pmId) {
-                $u = $userRepo->findBasic($pmId);
-                if ($u) {
+                if (!$mrRepo->getStage($fileId, 4)) {
+                    $mrRepo->createStage($fileId, 4, $pmId);
+                }
+                if ($u = $userRepo->findBasic($pmId)) {
                     $base = rtrim($_ENV['APP_URL'] ?? '', '/');
-                    $link = $base . '/measurements/' . $fileId . '/payments/new';
+                    $link = $base . '/measurements/' . $fileId . '/review/4';
                     $subject = 'Medição aprovada — registrar pagamentos (Operação #' . $opId . ')';
                     $html = '<p>Olá, ' . htmlspecialchars($u['name']) . '</p>'
                         . '<p>A medição da operação <strong>#' . $opId . '</strong> (' . htmlspecialchars($op['title'])
-                        . ') foi <strong>aprovada nas 3 validações</strong>.</p>'
-                        . '<p>Registre os pagamentos no formulário: '
-                        . '<a href="' . htmlspecialchars($link) . '">Abrir formulário de pagamentos</a>.</p>';
+                        . ') foi aprovada nas três validações.</p>'
+                        . '<p>Acesse a <strong>4ª etapa</strong> para registrar/verificar pagamentos: '
+                        . '<a href="' . htmlspecialchars($link) . '">Abrir 4ª validação</a>.</p>';
                     try {
                         Mailer::send($u['email'], $u['name'], $subject, $html);
                     } catch (\Throwable) {
                     }
                 }
             }
+        } elseif ($stage === 4) {
+            // 4ª etapa (gestão de pagamentos)
+            $hasPayments = false;
+            if (class_exists(\App\Repositories\MeasurementPaymentRepository::class)) {
+                $pRepo = new \App\Repositories\MeasurementPaymentRepository();
+                $hasPayments = count($pRepo->listByMeasurement($fileId)) > 0;
+            }
+
+            if ($decision === 'approved') {
+                if (!$hasPayments) {
+                    http_response_code(400);
+                    echo 'Cadastre ao menos um pagamento antes de aprovar a 4ª etapa.';
+                    return;
+                }
+                $ohRepo->log($opId, 'payment_checked', '4ª etapa aprovada: pagamentos registrados/verificados. Observações: ' . $notes);
+            }
+            // Se "rejected", o bloco de recusa acima já cuidou (status rejected + e-mail)
         }
 
         header('Location: /operations/' . $opId);

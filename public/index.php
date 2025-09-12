@@ -49,6 +49,10 @@ $router->post('/measurements/{id}/payments',    fn(string $id) => (new \App\Cont
 $router->get('/measurements/{id}/finalize', fn(string $id) => (new \App\Controllers\MeasurementController())->finalizeForm((int)$id));
 $router->post('/measurements/{id}/finalize', fn(string $id) => (new \App\Controllers\MeasurementController())->finalizeSubmit((int)$id));
 
+// Criar operação
+$router->get('/operations/create', fn() => (new OperationController())->create());
+$router->post('/operations', fn() => (new OperationController())->store());
+
 // Compat antigos
 $router->get('/measurements/{id}/analyzed', function (string $id) {
     header('Location: /measurements/' . (int)$id . '/review/1');

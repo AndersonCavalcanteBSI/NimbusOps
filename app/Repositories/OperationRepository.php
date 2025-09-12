@@ -114,4 +114,42 @@ final class OperationRepository
 
         return $row;
     }
+
+    public function create(array $data): int
+    {
+        $pdo = \Core\Database::pdo();
+
+        // Garantir unicidade do código
+        $chk = $pdo->prepare('SELECT 1 FROM operations WHERE code = :code LIMIT 1');
+        $chk->execute([':code' => $data['code']]);
+        if ($chk->fetchColumn()) {
+            throw new \InvalidArgumentException('Código já utilizado por outra operação.');
+        }
+
+        $sql = 'INSERT INTO operations
+            (code, title, status, issuer, due_date, amount,
+             responsible_user_id, stage2_reviewer_user_id, stage3_reviewer_user_id,
+             payment_manager_user_id, payment_finalizer_user_id, rejection_notify_user_id)
+            VALUES
+            (:code, :title, :status, :issuer, :due_date, :amount,
+             :u1, :u2, :u3, :u4, :u5, :u6)';
+
+        $st = $pdo->prepare($sql);
+        $st->execute([
+            ':code'   => $data['code'],
+            ':title'  => $data['title'],
+            ':status' => $data['status'] ?? 'draft',
+            ':issuer' => $data['issuer'] ?: null,
+            ':due_date' => $data['due_date'] ?: null,
+            ':amount' => $data['amount'] !== '' ? (float)$data['amount'] : null,
+            ':u1' => $data['responsible_user_id'] ?: null,
+            ':u2' => $data['stage2_reviewer_user_id'] ?: null,
+            ':u3' => $data['stage3_reviewer_user_id'] ?: null,
+            ':u4' => $data['payment_manager_user_id'] ?: null,
+            ':u5' => $data['payment_finalizer_user_id'] ?: null,
+            ':u6' => $data['rejection_notify_user_id'] ?: null,
+        ]);
+
+        return (int)$pdo->lastInsertId();
+    }
 }

@@ -144,7 +144,7 @@ final class MeasurementController extends Controller
                 $reviewerId = (int)($op['responsible_user_id'] ?? 0);
             } elseif ($stage === 2) {
                 $reviewerId = (int)($op['stage2_reviewer_user_id'] ?? 0);
-            } elseif ($stage === 3) { // <<< ADIÇÃO FASE 5
+            } elseif ($stage === 3) { // 3ª validação
                 $reviewerId = (int)($op['stage3_reviewer_user_id'] ?? 0);
             }
 
@@ -198,7 +198,7 @@ final class MeasurementController extends Controller
                     $reviewerId = (int)($opTmp['responsible_user_id'] ?? 0);
                 } elseif ($stage === 2) {
                     $reviewerId = (int)($opTmp['stage2_reviewer_user_id'] ?? 0);
-                } elseif ($stage === 3) { // <<< ADIÇÃO FASE 5
+                } elseif ($stage === 3) {
                     $reviewerId = (int)($opTmp['stage3_reviewer_user_id'] ?? 0);
                 }
                 if (!$reviewerId) {
@@ -276,7 +276,7 @@ final class MeasurementController extends Controller
             }
             $ohRepo->log($opId, 'measurement', 'Medição aprovada na 1ª validação. Observações: ' . $notes);
         } elseif ($stage === 2) {
-            // FASE 5: cria etapa 3 e notifica o 3º revisor
+            // Cria etapa 3 e notifica o 3º revisor
             $stage3UserId = (int)($op['stage3_reviewer_user_id'] ?? 0);
             if ($stage3UserId) {
                 if (!$mrRepo->getStage($fileId, 3)) {
@@ -298,11 +298,112 @@ final class MeasurementController extends Controller
             }
             $ohRepo->log($opId, 'measurement', 'Medição aprovada na 2ª validação. Observações: ' . $notes);
         } elseif ($stage === 3) {
-            // Etapa 3 concluída (aprovada) — registra e segue para a próxima fase (pagamentos) em fase futura
+            // Etapa 3 concluída (aprovada): notificar gestor de pagamentos
             $ohRepo->log($opId, 'measurement', 'Medição aprovada na 3ª validação. Observações: ' . $notes);
+
+            $pmId = (int)($op['payment_manager_user_id'] ?? 0);
+            if ($pmId) {
+                $u = $userRepo->findBasic($pmId);
+                if ($u) {
+                    $base = rtrim($_ENV['APP_URL'] ?? '', '/');
+                    $link = $base . '/measurements/' . $fileId . '/payments/new';
+                    $subject = 'Medição aprovada — registrar pagamentos (Operação #' . $opId . ')';
+                    $html = '<p>Olá, ' . htmlspecialchars($u['name']) . '</p>'
+                        . '<p>A medição da operação <strong>#' . $opId . '</strong> (' . htmlspecialchars($op['title'])
+                        . ') foi <strong>aprovada nas 3 validações</strong>.</p>'
+                        . '<p>Registre os pagamentos no formulário: '
+                        . '<a href="' . htmlspecialchars($link) . '">Abrir formulário de pagamentos</a>.</p>';
+                    try {
+                        Mailer::send($u['email'], $u['name'], $subject, $html);
+                    } catch (\Throwable) {
+                    }
+                }
+            }
         }
 
         header('Location: /operations/' . $opId);
+        exit;
+    }
+
+    /** GET: Formulário para registrar pagamentos da medição */
+    public function paymentsForm(int $fileId): void
+    {
+        $pdo = \Core\Database::pdo();
+
+        // arquivo + operação
+        $st = $pdo->prepare(
+            'SELECT mf.*, o.title AS op_title, o.id AS op_id
+               FROM measurement_files mf
+               JOIN operations o ON o.id = mf.operation_id
+              WHERE mf.id = :id'
+        );
+        $st->execute([':id' => $fileId]);
+        $file = $st->fetch();
+        if (!$file) {
+            http_response_code(404);
+            echo 'Arquivo não encontrado';
+            return;
+        }
+
+        // pagamentos já registrados (se houver)
+        $pRepo = new \App\Repositories\MeasurementPaymentRepository();
+        $payments = $pRepo->listByMeasurement($fileId);
+
+        $this->view('measurements/payments_new', [
+            'file' => $file,
+            'payments' => $payments,
+        ]);
+    }
+
+    /** POST: Persiste pagamentos e orienta incluir no banco */
+    public function paymentsStore(int $fileId): void
+    {
+        $pdo = \Core\Database::pdo();
+        $opId = (int)$pdo->query('SELECT operation_id FROM measurement_files WHERE id=' . (int)$fileId)->fetchColumn();
+        if (!$opId) {
+            http_response_code(404);
+            echo 'Medição/Operação não encontrada';
+            return;
+        }
+
+        // Coleta linhas do formulário
+        $payDates = $_POST['pay_date'] ?? [];
+        $amounts  = $_POST['amount'] ?? [];
+        $methods  = $_POST['method'] ?? [];
+        $notesArr = $_POST['notes'] ?? [];
+
+        $rows = [];
+        $n = max(count((array)$payDates), count((array)$amounts));
+        for ($i = 0; $i < $n; $i++) {
+            $dt = trim((string)($payDates[$i] ?? ''));
+            $am = (float)($amounts[$i] ?? 0);
+            if ($dt === '' || $am <= 0) {
+                continue;
+            }
+            $rows[] = [
+                'pay_date' => $dt,
+                'amount'   => $am,
+                'method'   => trim((string)($methods[$i] ?? '')),
+                'notes'    => trim((string)($notesArr[$i] ?? '')),
+            ];
+        }
+
+        if (!$rows) {
+            http_response_code(400);
+            echo 'Informe ao menos um pagamento válido.';
+            return;
+        }
+
+        // (sem autenticação) created_by = null
+        $pRepo = new \App\Repositories\MeasurementPaymentRepository();
+        $inserted = $pRepo->createMany($opId, $fileId, $rows, null);
+
+        // registra no histórico da operação
+        $oh = new \App\Repositories\OperationHistoryRepository();
+        $oh->log($opId, 'payment_recorded', 'Pagamentos registrados para a medição #' . $fileId . ' (itens: ' . $inserted . ').');
+
+        // redirect com mensagem de orientação
+        header('Location: /measurements/' . $fileId . '/payments/new?ok=1');
         exit;
     }
 }

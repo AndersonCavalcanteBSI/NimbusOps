@@ -8,6 +8,7 @@ use Core\Controller;
 use App\Repositories\OperationRepository;
 use App\Repositories\OperationHistoryRepository;
 use App\Repositories\MeasurementReviewRepository;
+use App\Repositories\UserRepository;
 
 final class OperationController extends Controller
 {
@@ -96,6 +97,64 @@ final class OperationController extends Controller
     {
         // Compatibilidade: em vez de marcar analisado, leva para a tela de revisão
         header('Location: /measurements/' . (int)$fileId . '/review');
+        exit;
+    }
+
+    public function create(): void
+    {
+        $users = (new UserRepository())->allActive();
+        $this->view('operations/create', ['users' => $users]);
+    }
+
+    public function store(): void
+    {
+        // Sanitização básica
+        $code  = trim((string)($_POST['code']  ?? ''));
+        $title = trim((string)($_POST['title'] ?? ''));
+        $issuer = trim((string)($_POST['issuer'] ?? ''));
+        $due   = trim((string)($_POST['due_date'] ?? ''));
+        $amount = trim((string)($_POST['amount'] ?? ''));
+
+        if ($code === '' || $title === '') {
+            http_response_code(422);
+            echo 'Informe ao menos Código e Título.';
+            return;
+        }
+
+        // IDs dos usuários (podem vir vazios)
+        $data = [
+            'code'   => $code,
+            'title'  => $title,
+            'issuer' => $issuer,
+            'due_date' => $due !== '' ? $due : null,
+            'amount' => $amount,
+            'status' => 'draft',
+            'responsible_user_id'       => (int)($_POST['responsible_user_id'] ?? 0) ?: null,
+            'stage2_reviewer_user_id'   => (int)($_POST['stage2_reviewer_user_id'] ?? 0) ?: null,
+            'stage3_reviewer_user_id'   => (int)($_POST['stage3_reviewer_user_id'] ?? 0) ?: null,
+            'payment_manager_user_id'   => (int)($_POST['payment_manager_user_id'] ?? 0) ?: null,
+            'payment_finalizer_user_id' => (int)($_POST['payment_finalizer_user_id'] ?? 0) ?: null,
+            'rejection_notify_user_id'  => (int)($_POST['rejection_notify_user_id'] ?? 0) ?: null,
+        ];
+
+        try {
+            $id = $this->repo->create($data);
+        } catch (\InvalidArgumentException $e) {
+            http_response_code(422);
+            echo htmlspecialchars($e->getMessage());
+            return;
+        } catch (\Throwable $e) {
+            http_response_code(500);
+            echo 'Falha ao criar operação.';
+            return;
+        }
+
+        // Histórico
+        if (class_exists(OperationHistoryRepository::class)) {
+            (new OperationHistoryRepository())->log($id, 'created', 'Operação criada via formulário.');
+        }
+
+        header('Location: /operations/' . $id);
         exit;
     }
 }

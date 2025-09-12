@@ -386,7 +386,6 @@ final class MeasurementController extends Controller
         ]);
     }
 
-    /** POST: Persiste pagamentos e orienta incluir no banco */
     public function paymentsStore(int $fileId): void
     {
         $pdo = \Core\Database::pdo();
@@ -433,8 +432,178 @@ final class MeasurementController extends Controller
         $oh = new \App\Repositories\OperationHistoryRepository();
         $oh->log($opId, 'payment_recorded', 'Pagamentos registrados para a medição #' . $fileId . ' (itens: ' . $inserted . ').');
 
+        // ===== FASE 7: notifica o "finalizador" com histórico completo + link para finalizar =====
+        $opRepo   = new \App\Repositories\OperationRepository();
+        $userRepo = new \App\Repositories\UserRepository();
+        $op       = $opRepo->find($opId);
+
+        $finalizerId = (int)($op['payment_finalizer_user_id'] ?? 0);
+        if ($finalizerId) {
+            if ($u = $userRepo->findBasic($finalizerId)) {
+                $base = rtrim($_ENV['APP_URL'] ?? '', '/');
+                $link = $base . '/measurements/' . $fileId . '/finalize';
+
+                $subject = 'Finalizar pagamento — Operação #' . $opId;
+                $html    = $this->buildMeasurementSummaryHtml($opId, $fileId);
+                $html   .= '<p style="margin-top:12px"><a href="' . htmlspecialchars($link) . '">Confirmar finalização do pagamento</a></p>';
+
+                try {
+                    \Core\Mailer::send($u['email'], $u['name'], $subject, $html);
+                } catch (\Throwable) {
+                }
+            }
+        }
+
         // redirect com mensagem de orientação
         header('Location: /measurements/' . $fileId . '/payments/new?ok=1');
+        exit;
+    }
+
+    /** Monta HTML com histórico completo da medição (revisões + pagamentos) */
+    private function buildMeasurementSummaryHtml(int $opId, int $fileId): string
+    {
+        $pdo    = \Core\Database::pdo();
+        $opRepo = new \App\Repositories\OperationRepository();
+        $mrRepo = new \App\Repositories\MeasurementReviewRepository();
+        $pRepo  = class_exists(\App\Repositories\MeasurementPaymentRepository::class)
+            ? new \App\Repositories\MeasurementPaymentRepository()
+            : null;
+
+        $op = $opRepo->find($opId) ?? [];
+        $st = $pdo->prepare('SELECT * FROM measurement_files WHERE id = :id');
+        $st->execute([':id' => $fileId]);
+        $file = $st->fetch() ?: [];
+
+        $reviews  = $mrRepo->listByFile($fileId);
+        $payments = $pRepo ? $pRepo->listByMeasurement($fileId) : [];
+        $total    = 0.0;
+        foreach ($payments as $p) {
+            $total += (float)$p['amount'];
+        }
+
+        ob_start(); ?>
+        <div>
+            <h3 style="margin:0 0 8px">Resumo da Medição</h3>
+            <p><strong>Operação #<?= (int)$opId ?></strong> — <?= htmlspecialchars((string)($op['title'] ?? '')) ?></p>
+            <p><strong>Arquivo:</strong> <?= htmlspecialchars((string)($file['filename'] ?? '')) ?></p>
+
+            <?php if ($reviews): ?>
+                <h4 style="margin:16px 0 6px">Histórico de Análises</h4>
+                <table border="1" cellpadding="6" cellspacing="0" width="100%" style="border-collapse:collapse">
+                    <thead>
+                        <tr>
+                            <th>Etapa</th>
+                            <th>Status</th>
+                            <th>Revisor</th>
+                            <th>Quando</th>
+                            <th>Observações</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php foreach ($reviews as $r): ?>
+                            <tr>
+                                <td><?= (int)$r['stage'] ?>ª</td>
+                                <td><?= htmlspecialchars((string)$r['status']) ?></td>
+                                <td><?= htmlspecialchars((string)($r['reviewer_name'] ?? '')) ?></td>
+                                <td><?= htmlspecialchars((string)($r['reviewed_at'] ?? '')) ?></td>
+                                <td><?= nl2br(htmlspecialchars((string)($r['notes'] ?? ''))) ?></td>
+                            </tr>
+                        <?php endforeach; ?>
+                    </tbody>
+                </table>
+            <?php endif; ?>
+
+            <?php if ($payments): ?>
+                <h4 style="margin:16px 0 6px">Pagamentos Registrados</h4>
+                <table border="1" cellpadding="6" cellspacing="0" width="100%" style="border-collapse:collapse">
+                    <thead>
+                        <tr>
+                            <th>Data</th>
+                            <th>Método</th>
+                            <th>Observações</th>
+                            <th style="text-align:right">Valor</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php foreach ($payments as $p): ?>
+                            <tr>
+                                <td><?= htmlspecialchars((string)$p['pay_date']) ?></td>
+                                <td><?= htmlspecialchars((string)($p['method'] ?? '-')) ?></td>
+                                <td><?= htmlspecialchars((string)($p['notes']  ?? '-')) ?></td>
+                                <td style="text-align:right">R$ <?= number_format((float)$p['amount'], 2, ',', '.') ?></td>
+                            </tr>
+                        <?php endforeach; ?>
+                        <tr>
+                            <td colspan="3" style="text-align:right"><strong>Total</strong></td>
+                            <td style="text-align:right"><strong>R$ <?= number_format((float)$total, 2, ',', '.') ?></strong></td>
+                        </tr>
+                    </tbody>
+                </table>
+            <?php else: ?>
+                <p><em>Não há pagamentos registrados ainda.</em></p>
+            <?php endif; ?>
+        </div>
+<?php
+        return (string)ob_get_clean();
+    }
+
+    /** GET: Mostra histórico completo e botão para finalizar */
+    public function finalizeForm(int $fileId): void
+    {
+        $pdo = \Core\Database::pdo();
+
+        // arquivo + operação
+        $st = $pdo->prepare('SELECT mf.*, o.id AS op_id, o.title AS op_title
+                           FROM measurement_files mf
+                           JOIN operations o ON o.id = mf.operation_id
+                          WHERE mf.id = :id');
+        $st->execute([':id' => $fileId]);
+        $file = $st->fetch();
+        if (!$file) {
+            http_response_code(404);
+            echo 'Medição não encontrada';
+            return;
+        }
+
+        $opId = (int)$file['op_id'];
+
+        $mrRepo  = new \App\Repositories\MeasurementReviewRepository();
+        $reviews = $mrRepo->listByFile($fileId);
+
+        $payments = [];
+        if (class_exists(\App\Repositories\MeasurementPaymentRepository::class)) {
+            $pRepo   = new \App\Repositories\MeasurementPaymentRepository();
+            $payments = $pRepo->listByMeasurement($fileId);
+        }
+
+        $this->view('measurements/finalize', [
+            'file'        => $file,
+            'operationId' => $opId,
+            'reviews'     => $reviews,
+            'payments'    => $payments,
+        ]);
+    }
+
+    /** POST: Confirma finalização => status = completed */
+    public function finalizeSubmit(int $fileId): void
+    {
+        $pdo = \Core\Database::pdo();
+
+        $opId = (int)$pdo->query('SELECT operation_id FROM measurement_files WHERE id=' . (int)$fileId)->fetchColumn();
+        if (!$opId) {
+            http_response_code(404);
+            echo 'Operação não encontrada';
+            return;
+        }
+
+        // Atualiza status para "completed"
+        $pdo->prepare('UPDATE operations SET status = "completed" WHERE id = :id')->execute([':id' => $opId]);
+
+        // Log
+        $oh = new \App\Repositories\OperationHistoryRepository();
+        $oh->log($opId, 'status_changed', 'Pagamento finalizado: operação marcada como "completed".');
+
+        header('Location: /operations/' . $opId);
         exit;
     }
 }

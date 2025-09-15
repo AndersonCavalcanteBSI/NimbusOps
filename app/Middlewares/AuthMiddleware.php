@@ -10,6 +10,7 @@ final class AuthMiddleware implements Middleware
 {
     public function handle(): void
     {
+        // Garante sessão iniciada (parâmetros do cookie já podem ter sido definidos no index.php)
         if (session_status() !== \PHP_SESSION_ACTIVE) {
             session_start();
         }
@@ -17,25 +18,27 @@ final class AuthMiddleware implements Middleware
         $path   = parse_url($_SERVER['REQUEST_URI'] ?? '/', \PHP_URL_PATH) ?: '/';
         $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
 
-        // Rotas públicas (login local e logout)
-        $publicPaths = [
-            '/auth/login',   // formulário (GET) e envio (POST)
-            '/logout',       // evita loop caso a sessão expire
-            // '/auth/callback', // descomente se/quando usar Microsoft
+        // Libera arquivos estáticos
+        if (preg_match('#^/(uploads|assets)(/|$)#', $path) || $path === '/favicon.ico') {
+            return;
+        }
+
+        // Whitelist de rotas públicas (métodos permitidos)
+        $public = [
+            '/auth/local'    => ['GET', 'POST'], // login local (form + submit)
+            '/auth/login'    => ['GET'],         // login Microsoft (opcional)
+            '/auth/callback' => ['GET'],         // callback Microsoft (opcional)
+            '/logout'        => ['GET'],         // permitir sair mesmo sem sessão válida
         ];
 
-        // Arquivos estáticos
-        $isAsset = str_starts_with($path, '/uploads/')
-            || str_starts_with($path, '/assets/')
-            || str_starts_with($path, '/favicon');
-
-        if (in_array($path, $publicPaths, true) || $isAsset) {
+        if (isset($public[$path]) && in_array($method, $public[$path], true)) {
             return; // não exige sessão
         }
 
-        // Exige sessão para todo o resto
-        if (!isset($_SESSION['user'])) {
-            header('Location: /auth/login');
+        // Para todas as outras rotas, exige usuário logado
+        if (empty($_SESSION['user']['id'])) {
+            // direciona para o login local (ajuste se usar outra rota)
+            header('Location: /auth/local');
             exit;
         }
     }

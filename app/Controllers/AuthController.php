@@ -36,6 +36,8 @@ final class AuthController extends Controller
             'id'    => (int)$user['id'],
             'name'  => (string)$user['name'],
             'email' => (string)$user['email'],
+            //'entra_object_id' => (string)($user['entra_object_id'] ?? ''),
+            'role'  => (string)($user['role'] ?? 'user'),
         ];
         $repo->updateLastLogin((int)$user['id']);
 

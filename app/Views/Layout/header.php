@@ -1,4 +1,8 @@
-<?php $role = $_SESSION['user']['role'] ?? 'user'; ?>
+<?php
+$role      = $_SESSION['user']['role'] ?? 'user';
+$loggedIn  = !empty($_SESSION['user']['id']);
+$msLinked  = (int)($_SESSION['user']['ms_linked'] ?? 0) === 1;
+?>
 <!doctype html>
 <html lang="pt-br">
 
@@ -20,14 +24,30 @@
                 <ul class="navbar-nav me-auto mb-2 mb-lg-0">
                     <li class="nav-item"><a class="nav-link" href="/operations">Operações</a></li>
                     <li class="nav-item"><a class="nav-link" href="/measurements/upload">Medições</a></li>
-                    <!--<li class="nav-item"><a class="nav-link" href="/operations/create">Nova Operação</a></li>-->
                     <?php if ($role === 'admin'): ?>
                         <li class="nav-item"><a class="nav-link" href="/operations/create">Nova Operação</a></li>
                         <li class="nav-item"><a class="nav-link" href="/users">Usuários</a></li>
                     <?php endif; ?>
                 </ul>
-                <ul class="navbar-nav ms-auto">
-                    <?php if (!empty($_SESSION['user'])): ?>
+
+                <ul class="navbar-nav ms-auto align-items-center gap-2">
+                    <?php if ($loggedIn): ?>
+                        <!-- Botão/estado do vínculo Microsoft -->
+                        <?php if ($msLinked): ?>
+                            <li class="nav-item">
+                                <span class="badge text-bg-success">Microsoft conectado</span>
+                            </li>
+                            <li class="nav-item">
+                                <form method="post" action="/auth/unlink" class="m-0 p-0">
+                                    <button class="btn btn-sm btn-outline-danger">Desvincular</button>
+                                </form>
+                            </li>
+                        <?php else: ?>
+                            <li class="nav-item">
+                                <a class="btn btn-sm btn-outline-primary" href="/auth/microsoft">Conectar Microsoft</a>
+                            </li>
+                        <?php endif; ?>
+
                         <li class="nav-item">
                             <span class="nav-link disabled">
                                 <?= htmlspecialchars($_SESSION['user']['name'] ?? $_SESSION['user']['email'] ?? 'Usuário') ?>

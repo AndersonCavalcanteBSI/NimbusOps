@@ -72,9 +72,9 @@ use App\Controllers\UserController;
 $router = new Router();
 
 // Helper p/ proteger rotas apenas para administradores
-$adminOnly = fn(callable $cb) => function () use ($cb) {
+$adminOnly = fn(callable $cb) => function (...$args) use ($cb) {
     (new RequireRoleMiddleware(['admin']))->handle();
-    $cb();
+    $cb(...$args);
 };
 
 /**
@@ -141,6 +141,10 @@ $router->post('/users',              $adminOnly(fn() => (new UserController())->
 $router->get('/users/{id}/edit',     $adminOnly(fn(string $id) => (new UserController())->edit((int)$id)));
 $router->post('/users/{id}',         $adminOnly(fn(string $id) => (new UserController())->update((int)$id)));
 
+// Microsoft: iniciar vínculo e callback (usuário precisa estar logado)
+$router->get('/auth/microsoft',       fn() => (new AuthController())->microsoftStart());
+$router->get('/auth/link/callback',   fn() => (new AuthController())->microsoftCallback());
+$router->post('/auth/unlink',         fn() => (new AuthController())->unlinkMicrosoft());
 
 // Compat antigo GET "analyzed" -> review/1
 $router->get('/measurements/{id}/analyzed', function (string $id) {

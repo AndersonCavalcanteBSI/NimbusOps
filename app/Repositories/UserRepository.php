@@ -149,7 +149,7 @@ final class UserRepository
     public function attachEntraId(int $userId, string $entraId): void
     {
         $pdo = Database::pdo();
-        $st = $pdo->prepare('UPDATE users SET entra_object_id = :eo WHERE id = :id');
+        $st = $pdo->prepare('UPDATE users SET entra_object_id = :eo, ms_linked = 1 WHERE id = :id');
         $st->execute([':eo' => $entraId, ':id' => $userId]);
     }
 
@@ -157,7 +157,7 @@ final class UserRepository
     public function detachEntraId(int $userId): void
     {
         $pdo = Database::pdo();
-        $st = $pdo->prepare('UPDATE users SET entra_object_id = NULL WHERE id = :id');
+        $st = $pdo->prepare('UPDATE users SET entra_object_id = NULL, ms_linked = 0 WHERE id = :id');
         $st->execute([':id' => $userId]);
     }
 

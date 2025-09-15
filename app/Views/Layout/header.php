@@ -21,6 +21,20 @@
                     <li class="nav-item"><a class="nav-link" href="/measurements/upload">Medições</a></li>
                     <li class="nav-item"><a class="nav-link" href="/operations/create">Nova Operação</a></li>
                 </ul>
+                <ul class="navbar-nav ms-auto">
+                    <?php if (!empty($_SESSION['user'])): ?>
+                        <li class="nav-item">
+                            <span class="nav-link disabled">
+                                <?= htmlspecialchars($_SESSION['user']['name'] ?? $_SESSION['user']['email'] ?? 'Usuário') ?>
+                            </span>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="/logout">Sair</a>
+                        </li>
+                    <?php else: ?>
+                        <li class="nav-item"><a class="nav-link" href="/auth/login">Entrar</a></li>
+                    <?php endif; ?>
+                </ul>
             </div>
         </div>
     </nav>

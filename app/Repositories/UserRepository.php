@@ -168,4 +168,71 @@ final class UserRepository
         $pdo->prepare('UPDATE users SET last_login_at = NOW() WHERE id = :id')
             ->execute([':id' => $userId]);
     }
+
+    public function listAll(): array
+    {
+        $pdo = Database::pdo();
+        $st = $pdo->query(
+            'SELECT id, name, email, role, active, last_login_at
+           FROM users
+         ORDER BY name ASC'
+        );
+        return $st->fetchAll() ?: [];
+    }
+
+    public function findFull(int $id): ?array
+    {
+        $pdo = Database::pdo();
+        $st = $pdo->prepare(
+            'SELECT id, name, email, role, active, entra_object_id, last_login_at
+           FROM users
+          WHERE id = :id
+          LIMIT 1'
+        );
+        $st->execute([':id' => $id]);
+        $r = $st->fetch();
+        return $r ?: null;
+    }
+
+    /** Atualiza nome, email, role e ativo */
+    public function updateProfile(int $id, string $name, string $email, string $role, bool $active): void
+    {
+        $pdo = Database::pdo();
+        $st = $pdo->prepare(
+            'UPDATE users
+            SET name = :n,
+                email = :e,
+                role = :r,
+                active = :a
+          WHERE id = :id'
+        );
+        $st->execute([
+            ':n'  => $name,
+            ':e'  => trim($email),
+            ':r'  => in_array($role, ['admin', 'user'], true) ? $role : 'user',
+            ':a'  => $active ? 1 : 0,
+            ':id' => $id,
+        ]);
+    }
+
+    /** Cria usuário completo já com role e active (senha opcional) */
+    public function createFull(string $name, string $email, ?string $plainPassword, string $role = 'user', bool $active = true): int
+    {
+        $pdo = Database::pdo();
+        $hash = $plainPassword ? password_hash($plainPassword, PASSWORD_DEFAULT) : null;
+
+        $st = $pdo->prepare(
+            'INSERT INTO users (name, email, password_hash, role, active, created_at)
+         VALUES (:n,:e,:p,:r,:a,NOW())'
+        );
+        $st->execute([
+            ':n' => $name,
+            ':e' => trim($email),
+            ':p' => $hash,
+            ':r' => in_array($role, ['admin', 'user'], true) ? $role : 'user',
+            ':a' => $active ? 1 : 0,
+        ]);
+
+        return (int)$pdo->lastInsertId();
+    }
 }

@@ -61,6 +61,7 @@ use App\Controllers\HomeController;
 use App\Controllers\OperationController;
 use App\Controllers\MeasurementController;
 use App\Controllers\AuthController;
+use App\Controllers\UserController;
 
 // Middlewares globais
 (new SecurityHeadersMiddleware())->handle();
@@ -132,6 +133,14 @@ $router->post('/measurements/{id}/finalize', fn(string $id) => (new MeasurementC
 // Criar operação
 $router->get('/operations/create', $adminOnly(fn() => (new OperationController())->create()));
 $router->post('/operations',       $adminOnly(fn() => (new OperationController())->store()));
+
+// Usuários (apenas admin)
+$router->get('/users',               $adminOnly(fn() => (new UserController())->index()));
+$router->get('/users/create',        $adminOnly(fn() => (new UserController())->create()));
+$router->post('/users',              $adminOnly(fn() => (new UserController())->store()));
+$router->get('/users/{id}/edit',     $adminOnly(fn(string $id) => (new UserController())->edit((int)$id)));
+$router->post('/users/{id}',         $adminOnly(fn(string $id) => (new UserController())->update((int)$id)));
+
 
 // Compat antigo GET "analyzed" -> review/1
 $router->get('/measurements/{id}/analyzed', function (string $id) {

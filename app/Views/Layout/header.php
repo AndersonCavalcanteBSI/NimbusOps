@@ -23,6 +23,7 @@
                     <!--<li class="nav-item"><a class="nav-link" href="/operations/create">Nova Operação</a></li>-->
                     <?php if ($role === 'admin'): ?>
                         <li class="nav-item"><a class="nav-link" href="/operations/create">Nova Operação</a></li>
+                        <li class="nav-item"><a class="nav-link" href="/users">Usuários</a></li>
                     <?php endif; ?>
                 </ul>
                 <ul class="navbar-nav ms-auto">

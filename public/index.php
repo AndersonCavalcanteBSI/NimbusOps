@@ -8,28 +8,43 @@ use Core\Env;
 
 Env::load(dirname(__DIR__)); // carrega .env ANTES de ler APP_URL
 
-// Sessão (cookie consistente p/ domínio local)
-if (session_status() !== PHP_SESSION_ACTIVE) {
-    session_set_cookie_params([
-        'lifetime' => 0,
-        'path'     => '/',
-        'domain'   => 'nimbusops.local', // seu host local
-        'secure'   => true,               // usamos https
-        'httponly' => true,
-        'samesite' => 'Lax',              // ok para redirect GET
-    ]);
-    session_start();
-}
-
-// Força https se APP_URL pedir https
+// 1) Redireciona para HTTPS antes de abrir a sessão
 $wantsHttps = str_starts_with((string)($_ENV['APP_URL'] ?? ''), 'https://');
 $isHttps    = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
     || (($_SERVER['SERVER_PORT'] ?? '') === '443');
+
 if ($wantsHttps && !$isHttps) {
-    $host = $_SERVER['HTTP_HOST'] ?? 'nimbusops.local';
+    $host = $_SERVER['HTTP_HOST']
+        ?? (parse_url((string)($_ENV['APP_URL'] ?? ''), PHP_URL_HOST) ?: 'nimbusops.local');
     $uri  = $_SERVER['REQUEST_URI'] ?? '/';
     header('Location: https://' . $host . $uri, true, 301);
     exit;
+}
+
+// 2) Inicia a sessão já no protocolo final, com cookie robusto (sem domain fixo)
+if (session_status() !== PHP_SESSION_ACTIVE) {
+    // Detecta se a requisição atual está em HTTPS
+    $isHttpsNow = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
+        || (($_SERVER['SERVER_PORT'] ?? '') === '443');
+
+    session_set_cookie_params([
+        'lifetime' => 0,
+        'path'     => '/',
+        // IMPORTANTE: não defina 'domain' -> cookie “host-only”
+        'secure'   => $isHttpsNow,  // true somente se a conexão atual for HTTPS
+        'httponly' => true,
+        'samesite' => 'Lax',        // permite retorno de redirects/login
+    ]);
+
+    // Redundâncias seguras
+    ini_set('session.cookie_httponly', '1');
+    ini_set('session.cookie_samesite', 'Lax');
+    ini_set('session.use_strict_mode', '1');
+    if ($isHttpsNow) {
+        ini_set('session.cookie_secure', '1');
+    }
+
+    session_start();
 }
 
 
@@ -49,15 +64,18 @@ use App\Controllers\AuthController;
 // Middlewares globais
 (new SecurityHeadersMiddleware())->handle();
 (new CORSMiddleware())->handle();
-(new AuthMiddleware())->handle(); // << habilita proteção por sessão
+(new AuthMiddleware())->handle(); // proteção por sessão (com exceções internas)
 
+// Router
 $router = new Router();
 
 /**
  * Rotas públicas de autenticação
  */
 $router->get('/auth/login', fn() => (new AuthController())->login());
-$router->get('/auth/callback', fn() => (new AuthController())->callback());
+$router->post('/auth/login', fn() => (new AuthController())->loginPost());
+//$router->get('/auth/microsoft', fn() => (new AuthController())->microsoftStart());
+//$router->get('/auth/callback', fn() => (new AuthController())->callback());
 $router->get('/logout', fn() => (new AuthController())->logout());
 
 /**

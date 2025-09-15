@@ -55,6 +55,8 @@ final class AuthController extends Controller
 
         if (!$user) {
             $_SESSION['flash_error'] = 'Credenciais inválidas.';
+            // grava sessão para garantir que o flash apareça
+            session_write_close();
             header('Location: /auth/local');
             exit;
         }
@@ -69,6 +71,9 @@ final class AuthController extends Controller
         ];
         $repo->updateLastLogin((int)$user['id']);
 
+        // 🔐 força gravar a sessão no disco antes do redirect
+        session_write_close();
+
         header('Location: /operations'); // ou outra landing
         exit;
     }
@@ -81,9 +86,12 @@ final class AuthController extends Controller
             setcookie(session_name(), '', time() - 42000, $p['path'], $p['domain'], $p['secure'], $p['httponly']);
         }
         session_destroy();
+        // garante que nada mais será escrito
+        session_write_close();
         header('Location: /auth/local');
         exit;
     }
+
 
     public function localForm(): void
     {

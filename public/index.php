@@ -85,16 +85,15 @@ $router->post('/auth/login', fn() => (new AuthController())->loginPost());
 //$router->get('/auth/callback', fn() => (new AuthController())->callback());
 $router->get('/logout', fn() => (new AuthController())->logout());*/
 
-// Login LOCAL
+// Login LOCAL (form + submit)
 $router->get('/auth/local', fn() => (new AuthController())->localForm());
 $router->post('/auth/local', fn() => (new AuthController())->loginPost());
 
-// Microsoft (quando for reativar)
-$router->get('/auth/login', fn() => (new AuthController())->login());      // inicia OAuth MS
-// $router->get('/auth/callback', fn() => (new AuthController())->callback());
+// Opcional: /auth/login também mostra o mesmo form (para não quebrar links antigos)
+$router->get('/auth/login', fn() => (new AuthController())->localForm());
 
+// Logout
 $router->get('/logout', fn() => (new AuthController())->logout());
-
 
 /**
  * Rotas da aplicação

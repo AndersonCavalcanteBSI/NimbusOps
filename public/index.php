@@ -5,6 +5,7 @@ declare(strict_types=1);
 require __DIR__ . '/../vendor/autoload.php';
 
 use Core\Env;
+use App\Middlewares\RequireRoleMiddleware;
 
 Env::load(dirname(__DIR__)); // carrega .env ANTES de ler APP_URL
 
@@ -69,6 +70,12 @@ use App\Controllers\AuthController;
 // Router
 $router = new Router();
 
+// Helper p/ proteger rotas apenas para administradores
+$adminOnly = fn(callable $cb) => function () use ($cb) {
+    (new RequireRoleMiddleware(['admin']))->handle();
+    $cb();
+};
+
 /**
  * Rotas públicas de autenticação
  */
@@ -113,8 +120,8 @@ $router->get('/measurements/{id}/finalize', fn(string $id) => (new MeasurementCo
 $router->post('/measurements/{id}/finalize', fn(string $id) => (new MeasurementController())->finalizeSubmit((int)$id));
 
 // Criar operação
-$router->get('/operations/create', fn() => (new OperationController())->create());
-$router->post('/operations', fn() => (new OperationController())->store());
+$router->get('/operations/create', $adminOnly(fn() => (new OperationController())->create()));
+$router->post('/operations',       $adminOnly(fn() => (new OperationController())->store()));
 
 // Compat antigo GET "analyzed" -> review/1
 $router->get('/measurements/{id}/analyzed', function (string $id) {

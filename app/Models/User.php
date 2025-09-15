@@ -15,4 +15,5 @@ final class User
     public ?string $avatar = null;
     public bool $active = true;
     public string $created_at;
+    public string $role = 'user';
 }

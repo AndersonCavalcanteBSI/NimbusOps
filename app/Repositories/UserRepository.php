@@ -17,7 +17,7 @@ final class UserRepository
     public function findBasic(int $id): ?array
     {
         $pdo = Database::pdo();
-        $st = $pdo->prepare('SELECT id, name, email FROM users WHERE id = :id AND active = 1');
+        $st = $pdo->prepare('SELECT id, name, email, role FROM users WHERE id = :id AND active = 1');
         $st->execute([':id' => $id]);
         $r = $st->fetch();
         return $r ?: null;
@@ -27,12 +27,12 @@ final class UserRepository
     public function allActive(): array
     {
         $pdo = Database::pdo();
-        $st = $pdo->query('SELECT id, name, email FROM users WHERE active = 1 ORDER BY name ASC');
+        $st = $pdo->query('SELECT id, name, email, role FROM users WHERE active = 1 ORDER BY name ASC');
         return $st->fetchAll() ?: [];
     }
 
     /** Busca ativo por e-mail (sem coluna extra; normaliza no SELECT) */
-    public function findByEmailActive(string $email): ?array
+    /*public function findByEmailActive(string $email): ?array
     {
         $pdo = Database::pdo();
         $st = $pdo->prepare(
@@ -42,6 +42,15 @@ final class UserRepository
               LIMIT 1'
         );
         $st->execute([':e' => $this->norm($email)]);
+        $row = $st->fetch();
+        return $row ?: null;
+    }*/
+
+    public function findByEmailActive(string $email): ?array
+    {
+        $pdo = Database::pdo();
+        $st = $pdo->prepare('SELECT * FROM users WHERE email = :email AND active = 1 LIMIT 1');
+        $st->execute([':email' => $email]);
         $row = $st->fetch();
         return $row ?: null;
     }
@@ -87,7 +96,7 @@ final class UserRepository
     }
 
     /** Verifica credenciais locais */
-    public function verifyLocalLogin(string $email, string $plainPassword): ?array
+    /*public function verifyLocalLogin(string $email, string $plainPassword): ?array
     {
         $pdo = Database::pdo();
         $st = $pdo->prepare(
@@ -106,6 +115,27 @@ final class UserRepository
             return null;
         }
         return $user;
+    }*/
+
+    public function verifyLocalLogin(string $email, string $plainPassword): ?array
+    {
+        $pdo = Database::pdo();
+        $st = $pdo->prepare(
+            'SELECT id, name, email, role, password_hash, active
+               FROM users
+              WHERE LOWER(TRIM(email)) = LOWER(TRIM(:e))
+                AND active = 1
+              LIMIT 1'
+        );
+        $st->execute([':e' => trim($email)]);
+        $u = $st->fetch();
+        if (!$u || empty($u['password_hash'])) {
+            return null;
+        }
+        if (!password_verify($plainPassword, (string)$u['password_hash'])) {
+            return null;
+        }
+        return $u;
     }
 
     /** Liga conta Microsoft ao usuário local */

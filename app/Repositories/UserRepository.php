@@ -121,22 +121,29 @@ final class UserRepository
     {
         $pdo = Database::pdo();
         $st = $pdo->prepare(
-            'SELECT id, name, email, role, password_hash, active
-               FROM users
-              WHERE LOWER(TRIM(email)) = LOWER(TRIM(:e))
-                AND active = 1
-              LIMIT 1'
+            'SELECT id, name, email, role, active, password_hash FROM users WHERE LOWER(TRIM(email)) = LOWER(TRIM(:e)) AND active = 1 LIMIT 1'
         );
         $st->execute([':e' => trim($email)]);
         $u = $st->fetch();
-        if (!$u || empty($u['password_hash'])) {
+        if (!$u) {
             return null;
         }
-        if (!password_verify($plainPassword, (string)$u['password_hash'])) {
-            return null;
+
+        // tenta password_hash primeiro
+        $hash = (string)($u['password_hash'] ?? '');
+        if ($hash !== '' && password_verify($plainPassword, $hash)) {
+            return $u;
         }
-        return $u;
+
+        // fallback: coluna legacy "password" (se existir e já estiver com hash)
+        $legacy = (string)($u['password'] ?? '');
+        if ($legacy !== '' && password_verify($plainPassword, $legacy)) {
+            return $u;
+        }
+
+        return null;
     }
+
 
     /** Liga conta Microsoft ao usuário local */
     public function attachEntraId(int $userId, string $entraId): void

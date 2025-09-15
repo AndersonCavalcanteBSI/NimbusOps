@@ -79,11 +79,22 @@ $adminOnly = fn(callable $cb) => function () use ($cb) {
 /**
  * Rotas públicas de autenticação
  */
-$router->get('/auth/login', fn() => (new AuthController())->login());
+/*$router->get('/auth/login', fn() => (new AuthController())->login());
 $router->post('/auth/login', fn() => (new AuthController())->loginPost());
 //$router->get('/auth/microsoft', fn() => (new AuthController())->microsoftStart());
 //$router->get('/auth/callback', fn() => (new AuthController())->callback());
+$router->get('/logout', fn() => (new AuthController())->logout());*/
+
+// Login LOCAL
+$router->get('/auth/local', fn() => (new AuthController())->localForm());
+$router->post('/auth/local', fn() => (new AuthController())->loginPost());
+
+// Microsoft (quando for reativar)
+$router->get('/auth/login', fn() => (new AuthController())->login());      // inicia OAuth MS
+// $router->get('/auth/callback', fn() => (new AuthController())->callback());
+
 $router->get('/logout', fn() => (new AuthController())->logout());
+
 
 /**
  * Rotas da aplicação

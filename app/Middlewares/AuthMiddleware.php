@@ -26,8 +26,8 @@ final class AuthMiddleware implements Middleware
         // Whitelist de rotas públicas (métodos permitidos)
         $public = [
             '/auth/local'    => ['GET', 'POST'], // login local (form + submit)
-            '/auth/login'    => ['GET'],         // login Microsoft (opcional)
-            '/auth/callback' => ['GET'],         // callback Microsoft (opcional)
+            //'/auth/login'    => ['GET'],         // login Microsoft (opcional)
+            //'/auth/callback' => ['GET'],         // callback Microsoft (opcional)
             '/logout'        => ['GET'],         // permitir sair mesmo sem sessão válida
         ];
 

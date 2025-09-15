@@ -17,7 +17,7 @@ final class AuthController extends Controller
     }
 
     /** POST: autenticação local (email + senha) */
-    public function loginPost(): void
+    /*public function loginPost(): void
     {
         $email = (string)($_POST['email'] ?? '');
         $pass  = (string)($_POST['password'] ?? '');
@@ -43,6 +43,34 @@ final class AuthController extends Controller
 
         header('Location: /operations');
         exit;
+    }*/
+
+    public function loginPost(): void
+    {
+        $email = trim((string)($_POST['email'] ?? ''));
+        $pass  = (string)($_POST['password'] ?? '');
+
+        $repo = new \App\Repositories\UserRepository();
+        $user = $repo->verifyLocalLogin($email, $pass);
+
+        if (!$user) {
+            $_SESSION['flash_error'] = 'Credenciais inválidas.';
+            header('Location: /auth/local');
+            exit;
+        }
+
+        // Regenera ID p/ evitar fixation e grava dados mínimos + role
+        session_regenerate_id(true);
+        $_SESSION['user'] = [
+            'id'    => (int)$user['id'],
+            'name'  => (string)$user['name'],
+            'email' => (string)$user['email'],
+            'role'  => (string)($user['role'] ?? 'user'),
+        ];
+        $repo->updateLastLogin((int)$user['id']);
+
+        header('Location: /operations'); // ou outra landing
+        exit;
     }
 
     public function logout(): void
@@ -55,5 +83,13 @@ final class AuthController extends Controller
         session_destroy();
         header('Location: /auth/login');
         exit;
+    }
+
+    public function localForm(): void
+    {
+        // Exibe form e flash (erro) quando houver
+        $error = $_SESSION['flash_error'] ?? null;
+        unset($_SESSION['flash_error']);
+        $this->view('auth/local', ['error' => $error]);
     }
 }

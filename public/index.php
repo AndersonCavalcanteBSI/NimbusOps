@@ -143,7 +143,7 @@ $router->post('/users/{id}',         $adminOnly(fn(string $id) => (new UserContr
 
 // Microsoft: iniciar vínculo e callback (usuário precisa estar logado)
 $router->get('/auth/microsoft',       fn() => (new AuthController())->microsoftStart());
-$router->get('/auth/link/callback',   fn() => (new AuthController())->microsoftCallback());
+$router->get('/auth/callback',   fn() => (new AuthController())->microsoftCallback());
 $router->post('/auth/unlink',         fn() => (new AuthController())->unlinkMicrosoft());
 
 // Compat antigo GET "analyzed" -> review/1

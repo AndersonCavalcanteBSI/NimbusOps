@@ -1,5 +1,8 @@
 RewriteEngine On
-RewriteRule ^index\.php$ - [L]
+# força /auth/login pro index
+RewriteRule ^auth/login$ index.php [QSA,L]
+
+# (resto das regras que você tinha)
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d
-RewriteRule . index.php [QSA,L]
+RewriteRule ^ index.php [QSA,L]

@@ -24,30 +24,24 @@ if ($wantsHttps && !$isHttps) {
 
 // 2) Inicia a sessão já no protocolo final, com cookie robusto (sem domain fixo)
 if (session_status() !== PHP_SESSION_ACTIVE) {
-    // Detecta se a requisição atual está em HTTPS
     $isHttpsNow = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
         || (($_SERVER['SERVER_PORT'] ?? '') === '443');
 
     session_set_cookie_params([
         'lifetime' => 0,
         'path'     => '/',
-        // IMPORTANTE: não defina 'domain' -> cookie “host-only”
-        'secure'   => $isHttpsNow,  // true somente se a conexão atual for HTTPS
+        'secure'   => $isHttpsNow,
         'httponly' => true,
-        'samesite' => 'Lax',        // permite retorno de redirects/login
+        'samesite' => 'Lax',
     ]);
-
-    // Redundâncias seguras
     ini_set('session.cookie_httponly', '1');
     ini_set('session.cookie_samesite', 'Lax');
     ini_set('session.use_strict_mode', '1');
     if ($isHttpsNow) {
         ini_set('session.cookie_secure', '1');
     }
-
     session_start();
 }
-
 
 use Core\Router;
 
@@ -80,18 +74,16 @@ $adminOnly = fn(callable $cb) => function (...$args) use ($cb) {
 /**
  * Rotas públicas de autenticação
  */
-/*$router->get('/auth/login', fn() => (new AuthController())->login());
-$router->post('/auth/login', fn() => (new AuthController())->loginPost());
-//$router->get('/auth/microsoft', fn() => (new AuthController())->microsoftStart());
-//$router->get('/auth/callback', fn() => (new AuthController())->callback());
-$router->get('/logout', fn() => (new AuthController())->logout());*/
-
 // Login LOCAL (form + submit)
 $router->get('/auth/local', fn() => (new AuthController())->localForm());
 $router->post('/auth/local', fn() => (new AuthController())->loginPost());
 
-// Opcional: /auth/login também mostra o mesmo form (para não quebrar links antigos)
+// Opcional: /auth/login também mostra o mesmo form (compat)
 $router->get('/auth/login', fn() => (new AuthController())->localForm());
+
+// Fluxo Microsoft (liberado no middleware)
+$router->get('/auth/microsoft', fn() => (new AuthController())->microsoftStart('login'));
+$router->get('/auth/callback',  fn() => (new AuthController())->microsoftCallback());
 
 // Logout
 $router->get('/logout', fn() => (new AuthController())->logout());
@@ -141,10 +133,8 @@ $router->post('/users',              $adminOnly(fn() => (new UserController())->
 $router->get('/users/{id}/edit',     $adminOnly(fn(string $id) => (new UserController())->edit((int)$id)));
 $router->post('/users/{id}',         $adminOnly(fn(string $id) => (new UserController())->update((int)$id)));
 
-// Microsoft: iniciar vínculo e callback (usuário precisa estar logado)
-$router->get('/auth/microsoft',       fn() => (new AuthController())->microsoftStart());
-$router->get('/auth/callback',   fn() => (new AuthController())->microsoftCallback());
-$router->post('/auth/unlink',         fn() => (new AuthController())->unlinkMicrosoft());
+// Vínculo Microsoft (desvincular) — exige sessão (não está na whitelist do middleware)
+$router->post('/auth/unlink', fn() => (new AuthController())->unlinkMicrosoft());
 
 // Compat antigo GET "analyzed" -> review/1
 $router->get('/measurements/{id}/analyzed', function (string $id) {

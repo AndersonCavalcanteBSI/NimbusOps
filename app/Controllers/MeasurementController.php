@@ -90,7 +90,7 @@ final class MeasurementController extends Controller
             if ($u) {
                 $base = rtrim($_ENV['APP_URL'] ?? '', '/');
                 $link = $base . '/measurements/' . $fileId . '/review/1';
-                $subject = $this->mailSubject($op, 'Nova medição — 1ª validação');
+                $subject = $this->mailSubject($op, 'Nova medição — 1ª Validação: Engenharia');
                 $html = '<p>Olá, ' . htmlspecialchars($u['name']) . '</p>'
                     . '<p>Um novo arquivo de medição foi adicionado à operação '
                     . '<strong>#' . $opId . ($op['code'] ? ' (' . $this->esc($op['code']) . ')' : '') . '</strong> '
@@ -282,7 +282,7 @@ final class MeasurementController extends Controller
                     $link = $base . '/measurements/' . $fileId . '/review/2';
                     $subject = $this->mailSubject($op, '2ª validação — nova medição');
                     $html = '<p>Olá, ' . $this->esc($u['name']) . '</p>'
-                        . '<p>Há uma nova medição para análise na <strong>2ª validação</strong> da operação '
+                        . '<p>Há uma nova medição para análise na <strong>2ª validação: Gestão</strong> da operação '
                         . '<strong>#' . $opId . ($op['code'] ? ' (' . $this->esc($op['code']) . ')' : '') . '</strong> '
                         . '(' . $this->esc((string)$op['title']) . ').</p>'
                         . '<p><a href="' . $this->esc($link) . '">Clique aqui para analisar</a>.</p>';
@@ -305,7 +305,7 @@ final class MeasurementController extends Controller
                     $link = $base . '/measurements/' . $fileId . '/review/3';
                     $subject = $this->mailSubject($op, '3ª validação — nova medição');
                     $html = '<p>Olá, ' . $this->esc($u['name']) . '</p>'
-                        . '<p>Há uma nova medição para análise na <strong>3ª validação</strong> da operação '
+                        . '<p>Há uma nova medição para análise na <strong>3ª validação: Jurídico</strong> da operação '
                         . '<strong>#' . $opId . ($op['code'] ? ' (' . $this->esc($op['code']) . ')' : '') . '</strong> '
                         . '(' . $this->esc((string)$op['title']) . ').</p>'
                         . '<p><a href="' . $this->esc($link) . '">Clique aqui para analisar</a>.</p>';

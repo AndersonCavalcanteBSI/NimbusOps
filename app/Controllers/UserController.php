@@ -6,6 +6,8 @@ namespace App\Controllers;
 
 use Core\Controller;
 use App\Repositories\UserRepository;
+// ADIÇÃO
+use App\Repositories\OAuthTokenRepository;
 
 final class UserController extends Controller
 {
@@ -26,7 +28,10 @@ final class UserController extends Controller
     public function create(): void
     {
         $this->view('users/form', [
-            'user' => null, // form de criação
+            'user' => null,          // form de criação
+            // OPCIONAL (evita undefined na view)
+            'msConnected' => false,
+            'msToken'     => null,
         ]);
     }
 
@@ -56,7 +61,6 @@ final class UserController extends Controller
             header('Location: /users');
             exit;
         } catch (\PDOException $e) {
-            // violações de UNIQUE (email/email_normalized) caem aqui
             $_SESSION['flash_err'] = 'Não foi possível salvar. E-mail já cadastrado?';
             header('Location: /users/create');
             exit;
@@ -71,7 +75,17 @@ final class UserController extends Controller
             echo 'Usuário não encontrado';
             return;
         }
-        $this->view('users/form', ['user' => $u]);
+
+        // ADIÇÃO — consulta o vínculo Microsoft no banco
+        $tokRepo     = new OAuthTokenRepository();
+        $msToken     = $tokRepo->findForUser($id, 'microsoft');
+        $msConnected = $tokRepo->isConnected($id, 'microsoft');
+
+        $this->view('users/form', [
+            'user'        => $u,
+            'msConnected' => $msConnected,
+            'msToken'     => $msToken,
+        ]);
     }
 
     public function update(int $id): void

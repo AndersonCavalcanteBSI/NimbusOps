@@ -97,10 +97,7 @@ final class MeasurementController extends Controller
                     . '(' . htmlspecialchars((string)$op['title']) . ').</p>'
                     . '<p>Status da operação: <strong>Pendente</strong>.</p>'
                     . '<p><a href="' . htmlspecialchars($link) . '">Clique aqui para analisar</a>.</p>';
-                try {
-                    Mailer::send($u['email'], $u['name'], $subject, $html);
-                } catch (\Throwable) {
-                }
+                $this->smtpSend($u['email'], $u['name'], $subject, $html, $opId);
             }
         }
 
@@ -258,10 +255,7 @@ final class MeasurementController extends Controller
                         . '(' . $this->esc((string)$op['title']) . ') foi <strong>reprovada</strong> na '
                         . $stage . 'ª validação.</p>'
                         . '<p><strong>Observações:</strong><br>' . nl2br($this->esc($notes)) . '</p>';
-                    try {
-                        Mailer::send($u['email'], $u['name'], $subject, $html);
-                    } catch (\Throwable) {
-                    }
+                    $this->smtpSend($u['email'], $u['name'], $subject, $html, $opId);
                 }
             }
 
@@ -286,10 +280,7 @@ final class MeasurementController extends Controller
                         . '<strong>#' . $opId . ($op['code'] ? ' (' . $this->esc($op['code']) . ')' : '') . '</strong> '
                         . '(' . $this->esc((string)$op['title']) . ').</p>'
                         . '<p><a href="' . $this->esc($link) . '">Clique aqui para analisar</a>.</p>';
-                    try {
-                        Mailer::send($u['email'], $u['name'], $subject, $html);
-                    } catch (\Throwable) {
-                    }
+                    $this->smtpSend($u['email'], $u['name'], $subject, $html, $opId);
                 }
             }
             $ohRepo->log($opId, 'measurement', 'Medição aprovada na 1ª validação. Observações: ' . $notes);
@@ -309,10 +300,7 @@ final class MeasurementController extends Controller
                         . '<strong>#' . $opId . ($op['code'] ? ' (' . $this->esc($op['code']) . ')' : '') . '</strong> '
                         . '(' . $this->esc((string)$op['title']) . ').</p>'
                         . '<p><a href="' . $this->esc($link) . '">Clique aqui para analisar</a>.</p>';
-                    try {
-                        Mailer::send($u['email'], $u['name'], $subject, $html);
-                    } catch (\Throwable) {
-                    }
+                    $this->smtpSend($u['email'], $u['name'], $subject, $html, $opId);
                 }
             }
             $ohRepo->log($opId, 'measurement', 'Medição aprovada na 2ª validação. Observações: ' . $notes);
@@ -336,10 +324,7 @@ final class MeasurementController extends Controller
                         . ') foi aprovada nas três validações.</p>'
                         . '<p>Acesse a <strong>4ª etapa</strong> para registrar/verificar pagamentos: '
                         . '<a href="' . $this->esc($link) . '">Abrir 4ª validação</a>.</p>';
-                    try {
-                        Mailer::send($u['email'], $u['name'], $subject, $html);
-                    } catch (\Throwable) {
-                    }
+                    $this->smtpSend($u['email'], $u['name'], $subject, $html, $opId);
                 }
             }
         } elseif ($stage === 4) {
@@ -456,10 +441,7 @@ final class MeasurementController extends Controller
                 $html    = $this->buildMeasurementSummaryHtml($opId, $fileId);
                 $html   .= '<p style="margin-top:12px"><a href="' . htmlspecialchars($link) . '">Confirmar finalização do pagamento</a></p>';
 
-                try {
-                    Mailer::send($u['email'], $u['name'], $subject, $html);
-                } catch (\Throwable) {
-                }
+                $this->smtpSend($u['email'], $u['name'], $subject, $html, $opId);
             }
         }
 
@@ -627,5 +609,25 @@ final class MeasurementController extends Controller
     {
         $code = trim((string)($op['code'] ?? ''));
         return $code !== '' ? '[' . $code . '] ' . $base : $base;
+    }
+
+    /** Envia e-mail com log e histórico da operação (não engole erros). */
+    private function smtpSend(string $to, ?string $name, string $subject, string $html, ?int $opId = null): bool
+    {
+        try {
+            Mailer::send($to, $name, $subject, $html);
+            if ($opId) {
+                (new OperationHistoryRepository())->log($opId, 'mail_sent', "E-mail enviado para {$to}: {$subject}");
+            }
+            return true;
+        } catch (\Throwable $e) {
+            $msg = '[SMTP] Falha ao enviar e-mail para ' . $to . ' — ' . $e->getMessage();
+            error_log($msg);
+            if ($opId) {
+                (new OperationHistoryRepository())->log($opId, 'mail_error', $msg);
+            }
+            $_SESSION['flash_mail_error'] = $e->getMessage();
+            return false;
+        }
     }
 }

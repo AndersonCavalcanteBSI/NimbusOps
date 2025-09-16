@@ -6,6 +6,7 @@ namespace App\Controllers;
 
 use Core\Controller;
 use App\Repositories\UserRepository;
+use App\Repositories\OAuthTokenRepository;
 use TheNetworg\OAuth2\Client\Provider\Azure;
 
 final class AuthController extends Controller
@@ -60,7 +61,10 @@ final class AuthController extends Controller
 
         $provider = $this->provider();
 
-        $_SESSION['ms_link_state'] = bin2hex(random_bytes(32));
+        // intenção padrão: apenas vincular a conta
+        $_SESSION['ms_link_intent'] = 'link';
+        $_SESSION['ms_link_state']  = bin2hex(random_bytes(32));
+
         $authUrl = $provider->getAuthorizationUrl([
             'scope'  => ['openid', 'profile', 'email', 'offline_access', 'User.Read'],
             'prompt' => 'select_account',
@@ -79,7 +83,7 @@ final class AuthController extends Controller
             exit;
         }
 
-        // valida state
+        // valida state anti-CSRF
         $got = (string)($_GET['state'] ?? '');
         $exp = (string)($_SESSION['ms_link_state'] ?? '');
         unset($_SESSION['ms_link_state']);
@@ -97,7 +101,10 @@ final class AuthController extends Controller
             $claims = $owner->toArray();
 
             $entraId = (string)($owner->getId() ?? '');
-            $email   = (string)($claims['mail'] ?? $claims['userPrincipalName'] ?? $owner->claim('preferred_username') ?? '');
+            $email   = (string)($claims['mail']
+                ?? $claims['userPrincipalName']
+                ?? $owner->claim('preferred_username')
+                ?? '');
             $name    = (string)($claims['displayName'] ?? $owner->claim('name') ?? '');
         } catch (\Throwable $e) {
             http_response_code(500);
@@ -111,25 +118,78 @@ final class AuthController extends Controller
             return;
         }
 
-        $repo = new UserRepository();
+        $userId = (int)$_SESSION['user']['id'];
+        $repo   = new UserRepository();
 
-        // Impede que a mesma conta MS seja usada por outro usuário ativo
+        // Evita que a mesma conta MS seja usada por outro usuário ativo
         $other = $repo->findByEntraIdActive($entraId);
-        if ($other && (int)$other['id'] !== (int)$_SESSION['user']['id']) {
+        if ($other && (int)$other['id'] !== $userId) {
             http_response_code(409);
             echo 'Esta conta Microsoft já está vinculada a outro usuário.';
             return;
         }
 
-        // Vincula à conta atual
-        $repo->attachEntraId((int)$_SESSION['user']['id'], $entraId);
+        // 1) Vincula a conta Microsoft ao usuário
+        $repo->attachEntraId($userId, $entraId);
 
-        // Atualiza sessão
+        // 2) Persiste tokens OAuth (access/refresh/expires/scope/tenant)
+        $values = (array)($token->getValues() ?? []);
+
+        // access token
+        $access = (string)$token->getToken();
+
+        // refresh token — pode vir em $token->getRefreshToken() ou em $values['refresh_token']
+        $refresh = (string)($token->getRefreshToken() ?? ($values['refresh_token'] ?? ''));
+
+        // expiresIn — calcula com base em getExpires() (epoch) ou em 'expires_in'/'ext_expires_in'
+        $expiresIn = 0;
+        $expEpoch  = (int)($token->getExpires() ?? 0);
+        if ($expEpoch > 0) {
+            $expiresIn = max(0, $expEpoch - time());
+        }
+        if ($expiresIn <= 0) {
+            $expiresIn = (int)($values['expires_in'] ?? $values['ext_expires_in'] ?? 3600);
+        }
+
+        // scope — pode vir como string em 'scope' / 'scp' ou como array
+        if (isset($values['scope'])) {
+            $scopeStr = is_array($values['scope']) ? implode(' ', $values['scope']) : (string)$values['scope'];
+        } elseif (isset($values['scp'])) { // Azure às vezes retorna 'scp'
+            $scopeStr = (string)$values['scp'];
+        } else {
+            $scopeStr = 'openid profile email offline_access User.Read';
+        }
+
+        // tenant
+        $tenantId = (string)($claims['tid'] ?? $_ENV['GRAPH_TENANT_ID'] ?? 'common');
+
+        // upsert na tabela oauth_tokens (provider = "microsoft")
+        (new OAuthTokenRepository())->upsert(
+            $userId,
+            'microsoft',
+            $access,
+            $refresh,
+            $expiresIn,
+            $scopeStr,
+            $tenantId
+        );
+
+        // marca usuário como "ms_linked"
+        \Core\Database::pdo()
+            ->prepare('UPDATE users SET ms_linked = 1 WHERE id = :id')
+            ->execute([':id' => $userId]);
+
+        // atualiza sessão
         $_SESSION['user']['entra_object_id'] = $entraId;
         $_SESSION['user']['ms_linked']       = 1;
 
         $_SESSION['flash_success'] = 'Conta Microsoft conectada com sucesso.';
         session_write_close();
+
+        // intenção (se no futuro houver "login")
+        $intent = (string)($_SESSION['ms_link_intent'] ?? 'link');
+        unset($_SESSION['ms_link_intent']);
+
         header('Location: /');
         exit;
     }
@@ -160,7 +220,7 @@ final class AuthController extends Controller
             setcookie(session_name(), '', time() - 42000, $p['path'], $p['domain'], $p['secure'], $p['httponly']);
         }
         session_destroy();
-        session_write_close();
+        //session_write_close();
         header('Location: /auth/local');
         exit;
     }

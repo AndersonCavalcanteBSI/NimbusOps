@@ -15,7 +15,16 @@
         <input type="password" name="password" class="form-control" required>
     </div>
     <div class="col-12 d-flex gap-2">
-        <button class="btn btn-primary">Entrar</button>
+        <button type="submit" class="btn btn-primary">Entrar</button>
+        <!-- Botão Microsoft: link direto para a rota /auth/microsoft -->
+        <a class="btn btn-outline-dark" href="/auth/microsoft">Entrar com Microsoft</a>
     </div>
 </form>
+
+<hr class="my-4">
+
+<div class="text-muted small">
+    Seu e-mail precisa estar habilitado no sistema para autenticar pela Microsoft.
+</div>
+
 <?php include __DIR__ . '/../layout/footer.php'; ?>

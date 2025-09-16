@@ -38,29 +38,86 @@
     };
     ?>
 
-    <div class="col-md-6">
-        <label class="form-label">Responsável (1ª validação)</label>
-        <select name="responsible_user_id" class="form-select"><?php $opts($users ?? []); ?></select>
-    </div>
-    <div class="col-md-6">
-        <label class="form-label">Revisor da 2ª validação</label>
-        <select name="stage2_reviewer_user_id" class="form-select"><?php $opts($users ?? []); ?></select>
-    </div>
-    <div class="col-md-6">
-        <label class="form-label">Revisor da 3ª validação</label>
-        <select name="stage3_reviewer_user_id" class="form-select"><?php $opts($users ?? []); ?></select>
-    </div>
-    <div class="col-md-6">
-        <label class="form-label">Gestor de Pagamentos (4ª etapa)</label>
-        <select name="payment_manager_user_id" class="form-select"><?php $opts($users ?? []); ?></select>
-    </div>
-    <div class="col-md-6">
-        <label class="form-label">Finalizador do Pagamento</label>
-        <select name="payment_finalizer_user_id" class="form-select"><?php $opts($users ?? []); ?></select>
-    </div>
-    <div class="col-md-6">
-        <label class="form-label">Notificar em caso de Recusa</label>
-        <select name="rejection_notify_user_id" class="form-select"><?php $opts($users ?? []); ?></select>
+    <div class="card mt-3">
+        <div class="card-header">Notificações por Fase</div>
+        <div class="card-body row g-3">
+            <?php
+            $sel = fn($v, $id) => ((int)($v ?? 0) === (int)$id ? 'selected' : '');
+            $op  = $op ?? [];
+            ?>
+
+            <div class="col-md-6">
+                <label class="form-label">1ª validação — Responsável</label>
+                <select class="form-select" name="responsible_user_id">
+                    <option value="">— Selecionar —</option>
+                    <?php foreach ($users as $u): ?>
+                        <option value="<?= (int)$u['id'] ?>" <?= $sel($op['responsible_user_id'] ?? null, $u['id']) ?>>
+                            <?= htmlspecialchars($u['name']) ?> (<?= htmlspecialchars($u['email']) ?>)
+                        </option>
+                    <?php endforeach; ?>
+                </select>
+            </div>
+
+            <div class="col-md-6">
+                <label class="form-label">2ª validação — Revisor</label>
+                <select class="form-select" name="stage2_reviewer_user_id">
+                    <option value="">— Selecionar —</option>
+                    <?php foreach ($users as $u): ?>
+                        <option value="<?= (int)$u['id'] ?>" <?= $sel($op['stage2_reviewer_user_id'] ?? null, $u['id']) ?>>
+                            <?= htmlspecialchars($u['name']) ?> (<?= htmlspecialchars($u['email']) ?>)
+                        </option>
+                    <?php endforeach; ?>
+                </select>
+            </div>
+
+            <div class="col-md-6">
+                <label class="form-label">3ª validação — Revisor</label>
+                <select class="form-select" name="stage3_reviewer_user_id">
+                    <option value="">— Selecionar —</option>
+                    <?php foreach ($users as $u): ?>
+                        <option value="<?= (int)$u['id'] ?>" <?= $sel($op['stage3_reviewer_user_id'] ?? null, $u['id']) ?>>
+                            <?= htmlspecialchars($u['name']) ?> (<?= htmlspecialchars($u['email']) ?>)
+                        </option>
+                    <?php endforeach; ?>
+                </select>
+            </div>
+
+            <div class="col-md-6">
+                <label class="form-label">Pagamentos — Gestor (4ª etapa)</label>
+                <select class="form-select" name="payment_manager_user_id">
+                    <option value="">— Selecionar —</option>
+                    <?php foreach ($users as $u): ?>
+                        <option value="<?= (int)$u['id'] ?>" <?= $sel($op['payment_manager_user_id'] ?? null, $u['id']) ?>>
+                            <?= htmlspecialchars($u['name']) ?> (<?= htmlspecialchars($u['email']) ?>)
+                        </option>
+                    <?php endforeach; ?>
+                </select>
+            </div>
+
+            <div class="col-md-6">
+                <label class="form-label">Reprovação — Notificar</label>
+                <select class="form-select" name="rejection_notify_user_id">
+                    <option value="">— Selecionar —</option>
+                    <?php foreach ($users as $u): ?>
+                        <option value="<?= (int)$u['id'] ?>" <?= $sel($op['rejection_notify_user_id'] ?? null, $u['id']) ?>>
+                            <?= htmlspecialchars($u['name']) ?> (<?= htmlspecialchars($u['email']) ?>)
+                        </option>
+                    <?php endforeach; ?>
+                </select>
+            </div>
+
+            <div class="col-md-6">
+                <label class="form-label">Finalização — Responsável (após pagamentos)</label>
+                <select class="form-select" name="payment_finalizer_user_id">
+                    <option value="">— Selecionar —</option>
+                    <?php foreach ($users as $u): ?>
+                        <option value="<?= (int)$u['id'] ?>" <?= $sel($op['payment_finalizer_user_id'] ?? null, $u['id']) ?>>
+                            <?= htmlspecialchars($u['name']) ?> (<?= htmlspecialchars($u['email']) ?>)
+                        </option>
+                    <?php endforeach; ?>
+                </select>
+            </div>
+        </div>
     </div>
 
     <div class="col-12 d-flex gap-2 mt-2">

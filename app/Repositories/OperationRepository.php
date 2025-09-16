@@ -89,17 +89,17 @@ final class OperationRepository
     {
         $pdo = Database::pdo();
         $sql = "
-        SELECT
-          o.*,
-          (
-            SELECT MAX(h.created_at)
-            FROM operation_history h
-            WHERE h.operation_id = o.id AND h.action = 'measurement'
-          ) AS last_measurement_at
-        FROM operations o
-        WHERE o.id = :id
-        LIMIT 1
-    ";
+            SELECT
+              o.*,
+              (
+                SELECT MAX(h.created_at)
+                FROM operation_history h
+                WHERE h.operation_id = o.id AND h.action = 'measurement'
+              ) AS last_measurement_at
+            FROM operations o
+            WHERE o.id = :id
+            LIMIT 1
+        ";
         $st = $pdo->prepare($sql);
         $st->execute([':id' => $id]);
         $row = $st->fetch();
@@ -115,9 +115,17 @@ final class OperationRepository
         return $row;
     }
 
+    /** Normaliza id vindo do POST/array */
+    private function asId(?string $v): ?int
+    {
+        $n = (int)($v ?? 0);
+        return $n > 0 ? $n : null;
+    }
+
+    /** Cria operação com destinatários configuráveis */
     public function create(array $data): int
     {
-        $pdo = \Core\Database::pdo();
+        $pdo = Database::pdo();
 
         // Garantir unicidade do código
         $chk = $pdo->prepare('SELECT 1 FROM operations WHERE code = :code LIMIT 1');
@@ -136,20 +144,46 @@ final class OperationRepository
 
         $st = $pdo->prepare($sql);
         $st->execute([
-            ':code'   => $data['code'],
-            ':title'  => $data['title'],
-            ':status' => $data['status'] ?? 'draft',
-            ':issuer' => $data['issuer'] ?: null,
-            ':due_date' => $data['due_date'] ?: null,
-            ':amount' => $data['amount'] !== '' ? (float)$data['amount'] : null,
-            ':u1' => $data['responsible_user_id'] ?: null,
-            ':u2' => $data['stage2_reviewer_user_id'] ?: null,
-            ':u3' => $data['stage3_reviewer_user_id'] ?: null,
-            ':u4' => $data['payment_manager_user_id'] ?: null,
-            ':u5' => $data['payment_finalizer_user_id'] ?: null,
-            ':u6' => $data['rejection_notify_user_id'] ?: null,
+            ':code'   => (string)$data['code'],
+            ':title'  => (string)$data['title'],
+            ':status' => (string)($data['status'] ?? 'draft'),
+            ':issuer' => ($data['issuer'] ?? null) !== '' ? (string)$data['issuer'] : null,
+            ':due_date' => ($data['due_date'] ?? null) !== '' ? (string)$data['due_date'] : null,
+            ':amount' => ($data['amount'] ?? '') !== '' ? (float)$data['amount'] : null,
+
+            ':u1' => $this->asId($data['responsible_user_id']       ?? null),
+            ':u2' => $this->asId($data['stage2_reviewer_user_id']   ?? null),
+            ':u3' => $this->asId($data['stage3_reviewer_user_id']   ?? null),
+            ':u4' => $this->asId($data['payment_manager_user_id']   ?? null),
+            ':u5' => $this->asId($data['payment_finalizer_user_id'] ?? null),
+            ':u6' => $this->asId($data['rejection_notify_user_id']  ?? null),
         ]);
 
         return (int)$pdo->lastInsertId();
+    }
+
+    /** Atualiza apenas os destinatários/validadores por fase */
+    public function updateRecipients(int $id, array $data): void
+    {
+        $pdo = Database::pdo();
+
+        $sql = 'UPDATE operations SET
+                  responsible_user_id       = :resp,
+                  stage2_reviewer_user_id   = :st2,
+                  stage3_reviewer_user_id   = :st3,
+                  payment_manager_user_id   = :paym,
+                  rejection_notify_user_id  = :rej,
+                  payment_finalizer_user_id = :final
+                WHERE id = :id';
+
+        $pdo->prepare($sql)->execute([
+            ':resp'  => $this->asId($data['responsible_user_id']       ?? null),
+            ':st2'   => $this->asId($data['stage2_reviewer_user_id']   ?? null),
+            ':st3'   => $this->asId($data['stage3_reviewer_user_id']   ?? null),
+            ':paym'  => $this->asId($data['payment_manager_user_id']   ?? null),
+            ':rej'   => $this->asId($data['rejection_notify_user_id']  ?? null),
+            ':final' => $this->asId($data['payment_finalizer_user_id'] ?? null),
+            ':id'    => $id,
+        ]);
     }
 }

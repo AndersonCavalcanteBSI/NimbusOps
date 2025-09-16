@@ -90,9 +90,11 @@ final class MeasurementController extends Controller
             if ($u) {
                 $base = rtrim($_ENV['APP_URL'] ?? '', '/');
                 $link = $base . '/measurements/' . $fileId . '/review/1';
-                $subject = 'Nova medição para a operação #' . $opId;
+                $subject = $this->mailSubject($op, 'Nova medição — 1ª validação');
                 $html = '<p>Olá, ' . htmlspecialchars($u['name']) . '</p>'
-                    . '<p>Um novo arquivo de medição foi adicionado à operação <strong>#' . $opId . '</strong> (' . htmlspecialchars($op['title']) . ').</p>'
+                    . '<p>Um novo arquivo de medição foi adicionado à operação '
+                    . '<strong>#' . $opId . ($op['code'] ? ' (' . $this->esc($op['code']) . ')' : '') . '</strong> '
+                    . '(' . htmlspecialchars((string)$op['title']) . ').</p>'
                     . '<p>Status da operação: <strong>Pendente</strong>.</p>'
                     . '<p><a href="' . htmlspecialchars($link) . '">Clique aqui para analisar</a>.</p>';
                 try {
@@ -249,10 +251,13 @@ final class MeasurementController extends Controller
             if ($rejId) {
                 $u = $userRepo->findBasic($rejId);
                 if ($u) {
-                    $subject = 'Medição reprovada — Operação #' . $opId;
-                    $html = '<p>A medição da operação <strong>#' . $opId . '</strong> (' . htmlspecialchars($op['title'])
-                        . ') foi <strong>reprovada</strong> na ' . $stage . 'ª validação.</p>'
-                        . '<p><strong>Observações:</strong><br>' . nl2br(htmlspecialchars($notes)) . '</p>';
+                    $base = rtrim($_ENV['APP_URL'] ?? '', '/');
+                    $subject = $this->mailSubject($op, 'Medição reprovada');
+                    $html = '<p>A medição da operação '
+                        . '<strong>#' . $opId . ($op['code'] ? ' (' . $this->esc($op['code']) . ')' : '') . '</strong> '
+                        . '(' . $this->esc((string)$op['title']) . ') foi <strong>reprovada</strong> na '
+                        . $stage . 'ª validação.</p>'
+                        . '<p><strong>Observações:</strong><br>' . nl2br($this->esc($notes)) . '</p>';
                     try {
                         Mailer::send($u['email'], $u['name'], $subject, $html);
                     } catch (\Throwable) {
@@ -275,11 +280,12 @@ final class MeasurementController extends Controller
                 if ($u = $userRepo->findBasic($stage2UserId)) {
                     $base = rtrim($_ENV['APP_URL'] ?? '', '/');
                     $link = $base . '/measurements/' . $fileId . '/review/2';
-                    $subject = '2ª validação — nova medição (Operação #' . $opId . ')';
-                    $html = '<p>Olá, ' . htmlspecialchars($u['name']) . '</p>'
+                    $subject = $this->mailSubject($op, '2ª validação — nova medição');
+                    $html = '<p>Olá, ' . $this->esc($u['name']) . '</p>'
                         . '<p>Há uma nova medição para análise na <strong>2ª validação</strong> da operação '
-                        . '<strong>#' . $opId . '</strong> (' . htmlspecialchars($op['title']) . ').</p>'
-                        . '<p><a href="' . htmlspecialchars($link) . '">Clique aqui para analisar</a>.</p>';
+                        . '<strong>#' . $opId . ($op['code'] ? ' (' . $this->esc($op['code']) . ')' : '') . '</strong> '
+                        . '(' . $this->esc((string)$op['title']) . ').</p>'
+                        . '<p><a href="' . $this->esc($link) . '">Clique aqui para analisar</a>.</p>';
                     try {
                         Mailer::send($u['email'], $u['name'], $subject, $html);
                     } catch (\Throwable) {
@@ -297,11 +303,12 @@ final class MeasurementController extends Controller
                 if ($u = $userRepo->findBasic($stage3UserId)) {
                     $base = rtrim($_ENV['APP_URL'] ?? '', '/');
                     $link = $base . '/measurements/' . $fileId . '/review/3';
-                    $subject = '3ª validação — nova medição (Operação #' . $opId . ')';
-                    $html = '<p>Olá, ' . htmlspecialchars($u['name']) . '</p>'
+                    $subject = $this->mailSubject($op, '3ª validação — nova medição');
+                    $html = '<p>Olá, ' . $this->esc($u['name']) . '</p>'
                         . '<p>Há uma nova medição para análise na <strong>3ª validação</strong> da operação '
-                        . '<strong>#' . $opId . '</strong> (' . htmlspecialchars($op['title']) . ').</p>'
-                        . '<p><a href="' . htmlspecialchars($link) . '">Clique aqui para analisar</a>.</p>';
+                        . '<strong>#' . $opId . ($op['code'] ? ' (' . $this->esc($op['code']) . ')' : '') . '</strong> '
+                        . '(' . $this->esc((string)$op['title']) . ').</p>'
+                        . '<p><a href="' . $this->esc($link) . '">Clique aqui para analisar</a>.</p>';
                     try {
                         Mailer::send($u['email'], $u['name'], $subject, $html);
                     } catch (\Throwable) {
@@ -321,12 +328,14 @@ final class MeasurementController extends Controller
                 if ($u = $userRepo->findBasic($pmId)) {
                     $base = rtrim($_ENV['APP_URL'] ?? '', '/');
                     $link = $base . '/measurements/' . $fileId . '/review/4';
-                    $subject = 'Medição aprovada — registrar pagamentos (Operação #' . $opId . ')';
-                    $html = '<p>Olá, ' . htmlspecialchars($u['name']) . '</p>'
-                        . '<p>A medição da operação <strong>#' . $opId . '</strong> (' . htmlspecialchars($op['title'])
+                    $subject = $this->mailSubject($op, 'Medição aprovada — registrar pagamentos (4ª etapa)');
+                    $html = '<p>Olá, ' . $this->esc($u['name']) . '</p>'
+                        . '<p>A medição da operação <strong>#' . $opId
+                        . ($op['code'] ? ' (' . $this->esc($op['code']) . ')' : '')
+                        . '</strong> (' . $this->esc((string)$op['title'])
                         . ') foi aprovada nas três validações.</p>'
                         . '<p>Acesse a <strong>4ª etapa</strong> para registrar/verificar pagamentos: '
-                        . '<a href="' . htmlspecialchars($link) . '">Abrir 4ª validação</a>.</p>';
+                        . '<a href="' . $this->esc($link) . '">Abrir 4ª validação</a>.</p>';
                     try {
                         Mailer::send($u['email'], $u['name'], $subject, $html);
                     } catch (\Throwable) {
@@ -443,12 +452,12 @@ final class MeasurementController extends Controller
                 $base = rtrim($_ENV['APP_URL'] ?? '', '/');
                 $link = $base . '/measurements/' . $fileId . '/finalize';
 
-                $subject = 'Finalizar pagamento — Operação #' . $opId;
+                $subject = $this->mailSubject($op, 'Finalizar pagamento — ação necessária');
                 $html    = $this->buildMeasurementSummaryHtml($opId, $fileId);
                 $html   .= '<p style="margin-top:12px"><a href="' . htmlspecialchars($link) . '">Confirmar finalização do pagamento</a></p>';
 
                 try {
-                    \Core\Mailer::send($u['email'], $u['name'], $subject, $html);
+                    Mailer::send($u['email'], $u['name'], $subject, $html);
                 } catch (\Throwable) {
                 }
             }
@@ -484,7 +493,7 @@ final class MeasurementController extends Controller
         ob_start(); ?>
         <div>
             <h3 style="margin:0 0 8px">Resumo da Medição</h3>
-            <p><strong>Operação #<?= (int)$opId ?></strong> — <?= htmlspecialchars((string)($op['title'] ?? '')) ?></p>
+            <p><strong>Operação #<?= (int)$opId ?><?= !empty($op['code']) ? ' (' . $this->esc((string)$op['code']) . ')' : '' ?></strong> — <?= htmlspecialchars((string)($op['title'] ?? '')) ?></p>
             <p><strong>Arquivo:</strong> <?= htmlspecialchars((string)($file['filename'] ?? '')) ?></p>
 
             <?php if ($reviews): ?>
@@ -605,5 +614,18 @@ final class MeasurementController extends Controller
 
         header('Location: /operations/' . $opId);
         exit;
+    }
+
+    /** Helper: escapa rapidamente (atalho) */
+    private function esc(string $v): string
+    {
+        return htmlspecialchars($v, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+    }
+
+    /** Helper: padroniza assuntos com código da operação quando existir */
+    private function mailSubject(array $op, string $base): string
+    {
+        $code = trim((string)($op['code'] ?? ''));
+        return $code !== '' ? '[' . $code . '] ' . $base : $base;
     }
 }

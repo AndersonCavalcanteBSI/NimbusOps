@@ -24,17 +24,12 @@ final class AuthMiddleware implements Middleware
         }
 
         // Whitelist de rotas públicas (métodos permitidos)
-        /*$public = [
-            '/auth/local'    => ['GET', 'POST'], // login local (form + submit)
-            //'/auth/login'    => ['GET'],         // login Microsoft (opcional)
-            //'/auth/callback' => ['GET'],         // callback Microsoft (opcional)
-            '/logout'        => ['GET'],         // permitir sair mesmo sem sessão válida
-        ];*/
-
         $public = [
-            '/auth/local' => ['GET', 'POST'],
-            '/auth/login' => ['GET', 'POST'],   // ✅ compat/atalho
-            '/logout'     => ['GET'],
+            '/auth/local'      => ['GET', 'POST'], // login local (form + submit)
+            '/auth/login'      => ['GET', 'POST'], // atalho/compat para a tela de login local
+            '/auth/microsoft'  => ['GET'],         // inicia OAuth MS
+            '/auth/callback'   => ['GET'],         // callback MS
+            '/logout'          => ['GET'],         // permitir sair mesmo sem sessão válida
         ];
 
         if (isset($public[$path]) && in_array($method, $public[$path], true)) {
@@ -43,7 +38,6 @@ final class AuthMiddleware implements Middleware
 
         // Para todas as outras rotas, exige usuário logado
         if (empty($_SESSION['user']['id'])) {
-            // direciona para o login local (ajuste se usar outra rota)
             header('Location: /auth/local');
             exit;
         }

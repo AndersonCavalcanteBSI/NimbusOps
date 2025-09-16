@@ -82,7 +82,8 @@ $router->post('/auth/local', fn() => (new AuthController())->loginPost());
 $router->get('/auth/login', fn() => (new AuthController())->localForm());
 
 // Fluxo Microsoft (liberado no middleware)
-$router->get('/auth/microsoft', fn() => (new AuthController())->microsoftStart('login'));
+//$router->get('/auth/microsoft', fn() => (new AuthController())->microsoftStart('login'));
+$router->get('/auth/microsoft', fn() => (new AuthController())->microsoftStart());
 $router->get('/auth/callback',  fn() => (new AuthController())->microsoftCallback());
 
 // Logout
@@ -134,7 +135,8 @@ $router->get('/users/{id}/edit',     $adminOnly(fn(string $id) => (new UserContr
 $router->post('/users/{id}',         $adminOnly(fn(string $id) => (new UserController())->update((int)$id)));
 
 // Vínculo Microsoft (desvincular) — exige sessão (não está na whitelist do middleware)
-$router->post('/auth/unlink', fn() => (new AuthController())->unlinkMicrosoft());
+//$router->post('/auth/unlink', fn() => (new AuthController())->unlinkMicrosoft());
+$router->get('/auth/microsoft/unlink',    fn() => (new AuthController())->unlinkMicrosoft());
 
 // Compat antigo GET "analyzed" -> review/1
 $router->get('/measurements/{id}/analyzed', function (string $id) {

@@ -44,6 +44,13 @@ final class AuthController extends Controller
             'entra_object_id' => (string)($user['entra_object_id'] ?? ''),
             'ms_linked'       => (int)($user['ms_linked'] ?? 0),
         ];
+
+        // >>> AJUSTE: reforça ms_linked a partir da tabela oauth_tokens (persiste após logout)
+        $tokRepo = new OAuthTokenRepository();
+        if ($tokRepo->isConnected((int)$user['id'], 'microsoft')) {
+            $_SESSION['user']['ms_linked'] = 1;
+        }
+
         $repo->updateLastLogin((int)$user['id']);
 
         session_write_close();
@@ -202,7 +209,16 @@ final class AuthController extends Controller
             exit;
         }
 
-        (new UserRepository())->detachEntraId((int)$_SESSION['user']['id']);
+        $userId = (int)$_SESSION['user']['id'];
+
+        // >>> AJUSTE: remove vínculo + tokens persistidos e zera flag no banco
+        (new UserRepository())->detachEntraId($userId);
+        (new OAuthTokenRepository())->deleteByUser($userId, 'microsoft');
+        \Core\Database::pdo()
+            ->prepare('UPDATE users SET ms_linked = 0 WHERE id = :id')
+            ->execute([':id' => $userId]);
+
+        // Atualiza sessão
         $_SESSION['user']['entra_object_id'] = '';
         $_SESSION['user']['ms_linked']       = 0;
 
@@ -220,7 +236,6 @@ final class AuthController extends Controller
             setcookie(session_name(), '', time() - 42000, $p['path'], $p['domain'], $p['secure'], $p['httponly']);
         }
         session_destroy();
-        //session_write_close();
         header('Location: /auth/local');
         exit;
     }

@@ -95,41 +95,71 @@ final class OperationController extends Controller
 
     public function store(): void
     {
-        $code    = trim((string)($_POST['code']  ?? ''));
-        $title   = trim((string)($_POST['title'] ?? ''));
-        $issuer  = trim((string)($_POST['issuer'] ?? ''));
-        $due     = trim((string)($_POST['due_date'] ?? ''));
-        $amount  = trim((string)($_POST['amount'] ?? ''));
+        // Campos principais
+        $title  = trim((string)($_POST['title'] ?? ''));
+        $code   = trim((string)($_POST['code']  ?? ''));
+        $issuer = trim((string)($_POST['issuer'] ?? ''));
+        $due    = trim((string)($_POST['due_date'] ?? ''));
+        $amount = trim((string)($_POST['amount'] ?? ''));
 
-        if ($code === '' || $title === '') {
+        if ($title === '') {
             http_response_code(422);
-            echo 'Informe ao menos Código e Título.';
+            echo 'Informe o título.';
             return;
         }
 
+        // IDs opcionais -> armazenar como NULL quando vierem vazios/0
+        $r1  = (int)($_POST['responsible_user_id']       ?? 0);
+        $r2  = (int)($_POST['stage2_reviewer_user_id']   ?? 0);
+        $r3  = (int)($_POST['stage3_reviewer_user_id']   ?? 0);
+        $pm  = (int)($_POST['payment_manager_user_id']   ?? 0);
+        $fin = (int)($_POST['payment_finalizer_user_id'] ?? 0);
+        $rej = (int)($_POST['rejection_notify_user_id']  ?? 0);
+
         $data = [
-            'code'   => $code,
             'title'  => $title,
+            'code'   => ($code !== '' ? $code : null),
             'issuer' => $issuer,
-            'due_date' => $due !== '' ? $due : null,
-            'amount' => $amount,
-            'status' => 'draft',
-            // destinatários (podem ser nulos)
-            'responsible_user_id'       => (int)($_POST['responsible_user_id'] ?? 0) ?: null,
-            'stage2_reviewer_user_id'   => (int)($_POST['stage2_reviewer_user_id'] ?? 0) ?: null,
-            'stage3_reviewer_user_id'   => (int)($_POST['stage3_reviewer_user_id'] ?? 0) ?: null,
-            'payment_manager_user_id'   => (int)($_POST['payment_manager_user_id'] ?? 0) ?: null,
-            'payment_finalizer_user_id' => (int)($_POST['payment_finalizer_user_id'] ?? 0) ?: null,
-            'rejection_notify_user_id'  => (int)($_POST['rejection_notify_user_id'] ?? 0) ?: null,
+            'due_date' => ($due !== '' ? $due : null),
+            'amount'   => ($amount !== '' ? $amount : null),
+            'status'   => 'draft',
+
+            'responsible_user_id'       => ($r1  ?: null),
+            'stage2_reviewer_user_id'   => ($r2  ?: null),
+            'stage3_reviewer_user_id'   => ($r3  ?: null),
+            'payment_manager_user_id'   => ($pm  ?: null),
+            'payment_finalizer_user_id' => ($fin ?: null),
+            'rejection_notify_user_id'  => ($rej ?: null),
         ];
 
         try {
             $id = $this->repo->create($data);
         } catch (\InvalidArgumentException $e) {
             http_response_code(422);
-            echo htmlspecialchars($e->getMessage());
+            echo htmlspecialchars($e->getMessage(), ENT_QUOTES, 'UTF-8');
             return;
-        } catch (\Throwable) {
+        } catch (\PDOException $e) {
+            // Loga para diagnóstico
+            error_log('[operation_create_error] ' . $e->getMessage());
+
+            // Mensagem amigável para violação de UNIQUE (ex.: code duplicado)
+            $msg = $e->getMessage();
+            if (stripos($msg, '1062') !== false || stripos($msg, 'duplicate') !== false) {
+                http_response_code(409);
+                echo 'Falha ao criar operação: código já existe.';
+                return;
+            }
+
+            if (($_ENV['APP_DEBUG'] ?? 'false') === 'true') {
+                http_response_code(500);
+                echo 'Falha ao criar operação: ' . htmlspecialchars($msg, ENT_QUOTES, 'UTF-8');
+            } else {
+                http_response_code(500);
+                echo 'Falha ao criar operação.';
+            }
+            return;
+        } catch (\Throwable $e) {
+            error_log('[operation_create_error_generic] ' . $e->getMessage());
             http_response_code(500);
             echo 'Falha ao criar operação.';
             return;

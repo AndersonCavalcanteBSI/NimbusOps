@@ -115,10 +115,10 @@ final class OperationRepository
         return $row;
     }
 
-    /** Normaliza id vindo do POST/array */
-    private function asId(?string $v): ?int
+    /** Normaliza id vindo do POST/array (aceita int|string|null) */
+    private function asId(int|string|null $v): ?int
     {
-        $n = (int)($v ?? 0);
+        $n = (int)trim((string)$v);
         return $n > 0 ? $n : null;
     }
 
@@ -127,11 +127,16 @@ final class OperationRepository
     {
         $pdo = Database::pdo();
 
-        // Garantir unicidade do código
-        $chk = $pdo->prepare('SELECT 1 FROM operations WHERE code = :code LIMIT 1');
-        $chk->execute([':code' => $data['code']]);
-        if ($chk->fetchColumn()) {
-            throw new \InvalidArgumentException('Código já utilizado por outra operação.');
+        // Código pode ser opcional
+        $code = trim((string)($data['code'] ?? ''));
+
+        // Garantir unicidade do código apenas se informado
+        if ($code !== '') {
+            $chk = $pdo->prepare('SELECT 1 FROM operations WHERE code = :code LIMIT 1');
+            $chk->execute([':code' => $code]);
+            if ($chk->fetchColumn()) {
+                throw new \InvalidArgumentException('Código já utilizado por outra operação.');
+            }
         }
 
         $sql = 'INSERT INTO operations
@@ -144,12 +149,12 @@ final class OperationRepository
 
         $st = $pdo->prepare($sql);
         $st->execute([
-            ':code'   => (string)$data['code'],
+            ':code'   => ($code !== '' ? $code : null),
             ':title'  => (string)$data['title'],
             ':status' => (string)($data['status'] ?? 'draft'),
-            ':issuer' => ($data['issuer'] ?? null) !== '' ? (string)$data['issuer'] : null,
-            ':due_date' => ($data['due_date'] ?? null) !== '' ? (string)$data['due_date'] : null,
-            ':amount' => ($data['amount'] ?? '') !== '' ? (float)$data['amount'] : null,
+            ':issuer' => (($data['issuer'] ?? '') !== '' ? (string)$data['issuer'] : null),
+            ':due_date' => (($data['due_date'] ?? '') !== '' ? (string)$data['due_date'] : null),
+            ':amount'   => (($data['amount'] ?? '') !== '' ? (float)$data['amount'] : null),
 
             ':u1' => $this->asId($data['responsible_user_id']       ?? null),
             ':u2' => $this->asId($data['stage2_reviewer_user_id']   ?? null),

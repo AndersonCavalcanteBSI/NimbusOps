@@ -14,6 +14,33 @@ use App\Repositories\UserRepository;
 
 final class MeasurementController extends Controller
 {
+    // -------------------------
+    // Status do pipeline
+    // -------------------------
+    private const ST_ENGENHARIA = 'Engenharia';
+    private const ST_GESTAO     = 'Gestão';
+    private const ST_JURIDICO   = 'Jurídico';
+    private const ST_PAGAMENTO  = 'Pagamento';
+    private const ST_FINALIZAR  = 'Finalizar';
+    private const ST_COMPLETO   = 'Completo';
+    private const ST_RECUSADO   = 'Recusado';
+
+    /** Atualiza status da operação e registra no histórico. */
+    private function setStatus(int $opId, string $status, string $note = ''): void
+    {
+        $pdo = \Core\Database::pdo();
+        $pdo->prepare('UPDATE operations SET status = :s WHERE id = :id')->execute([
+            ':s'  => $status,
+            ':id' => $opId,
+        ]);
+
+        (new OperationHistoryRepository())->log(
+            $opId,
+            'status_changed',
+            ($note !== '' ? $note . ' ' : '') . 'Status: ' . $status . '.'
+        );
+    }
+
     public function create(): void
     {
         $ops = (new OperationRepository())->paginate([], 1, 200, 'title', 'asc')['data'] ?? [];
@@ -73,10 +100,14 @@ final class MeasurementController extends Controller
         $publicPath = '/uploads/ops/' . $opId . '/' . $new;
         $fileId = (new MeasurementFileRepository())->create($opId, $name, $publicPath, null);
 
-        // status -> pending
-        $pdo = \Core\Database::pdo();
+        // status -> pending (mantido por enquanto; usaremos setStatus nas próximas etapas)
+        /*$pdo = \Core\Database::pdo();
         $pdo->prepare('UPDATE operations SET status = "pending" WHERE id = :id')->execute([':id' => $opId]);
-        (new OperationHistoryRepository())->log($opId, 'status_changed', 'Arquivo de medição adicionado: operação marcada como pending.');
+        (new OperationHistoryRepository())->log($opId, 'status_changed', 'Arquivo de medição adicionado: operação marcada como pending.');*/
+
+        // Status inicial: Engenharia (nova medição adicionada)
+        $this->setStatus($opId, self::ST_ENGENHARIA, 'Arquivo de medição adicionado.');
+
 
         // criar etapa 1 (revisor = responsável), se houver
         $responsibleId = (int)($op['responsible_user_id'] ?? 0);
@@ -95,7 +126,7 @@ final class MeasurementController extends Controller
                     . '<p>Um novo arquivo de medição foi adicionado à operação '
                     . '<strong>#' . $opId . ($op['code'] ? ' (' . $this->esc($op['code']) . ')' : '') . '</strong> '
                     . '(' . htmlspecialchars((string)$op['title']) . ').</p>'
-                    . '<p>Status da operação: <strong>Pendente</strong>.</p>'
+                    . '<p>Status da operação: <strong>' . self::ST_ENGENHARIA . '</strong>.</p>'
                     . '<p><a href="' . htmlspecialchars($link) . '">Clique aqui para analisar</a>.</p>';
                 $this->smtpSend($u['email'], $u['name'], $subject, $html, $opId);
             }
@@ -241,8 +272,10 @@ final class MeasurementController extends Controller
 
         if ($decision === 'rejected') {
             // Recusa: seta status e notifica destinatário pré-definido
-            $pdo->prepare('UPDATE operations SET status = "rejected" WHERE id = :id')->execute([':id' => $opId]);
-            $ohRepo->log($opId, 'status_changed', "Medição reprovada na {$stage}ª validação. Observações: " . $notes);
+            /*$pdo->prepare('UPDATE operations SET status = "rejected" WHERE id = :id')->execute([':id' => $opId]);
+            $ohRepo->log($opId, 'status_changed', "Medição reprovada na {$stage}ª validação. Observações: " . $notes);*/
+            $this->setStatus($opId, self::ST_RECUSADO, "Medição reprovada na {$stage}ª validação.");
+            $ohRepo->log($opId, 'measurement', "Reprovação na {$stage}ª validação. Observações: " . $notes);
 
             $rejId = (int)($op['rejection_notify_user_id'] ?? 0);
             if ($rejId) {
@@ -283,6 +316,7 @@ final class MeasurementController extends Controller
                     $this->smtpSend($u['email'], $u['name'], $subject, $html, $opId);
                 }
             }
+            $this->setStatus($opId, self::ST_GESTAO, 'Aprovada na 1ª validação; próxima etapa: Gestão.');
             $ohRepo->log($opId, 'measurement', 'Medição aprovada na 1ª validação. Observações: ' . $notes);
         } elseif ($stage === 2) {
             // Cria etapa 3 e notifica o 3º revisor
@@ -303,9 +337,11 @@ final class MeasurementController extends Controller
                     $this->smtpSend($u['email'], $u['name'], $subject, $html, $opId);
                 }
             }
+            $this->setStatus($opId, self::ST_JURIDICO, 'Aprovada na 2ª validação; próxima etapa: Jurídico.');
             $ohRepo->log($opId, 'measurement', 'Medição aprovada na 2ª validação. Observações: ' . $notes);
         } elseif ($stage === 3) {
             // Etapa 3 aprovada: cria etapa 4 (gestão de pagamentos) e notifica para /review/4
+            $this->setStatus($opId, self::ST_PAGAMENTO, 'Aprovada na 3ª validação; próxima etapa: Pagamento.');
             $ohRepo->log($opId, 'measurement', 'Medição aprovada na 3ª validação. Observações: ' . $notes);
 
             $pmId = (int)($op['payment_manager_user_id'] ?? 0);
@@ -341,6 +377,7 @@ final class MeasurementController extends Controller
                     echo 'Cadastre ao menos um pagamento antes de aprovar a 4ª etapa.';
                     return;
                 }
+                $this->setStatus($opId, self::ST_FINALIZAR, 'Pagamentos verificados; pronto para finalizar.');
                 $ohRepo->log($opId, 'payment_checked', '4ª etapa aprovada: pagamentos registrados/verificados. Observações: ' . $notes);
             }
             // Se "rejected", o bloco de recusa acima já cuidou (status rejected + e-mail)
@@ -575,7 +612,7 @@ final class MeasurementController extends Controller
         ]);
     }
 
-    /** POST: Confirma finalização => status = completed */
+    /** POST: Confirma finalização => status = Completo */
     public function finalizeSubmit(int $fileId): void
     {
         $pdo = \Core\Database::pdo();
@@ -587,16 +624,17 @@ final class MeasurementController extends Controller
             return;
         }
 
-        // Atualiza status para "completed"
-        $pdo->prepare('UPDATE operations SET status = "completed" WHERE id = :id')->execute([':id' => $opId]);
+        // Atualiza status para "Completo"
+        $this->setStatus($opId, self::ST_COMPLETO, 'Pagamento finalizado.');
 
-        // Log
+        // Log complementar (mantém trilha separada do status_changed feito no setStatus)
         $oh = new \App\Repositories\OperationHistoryRepository();
-        $oh->log($opId, 'status_changed', 'Pagamento finalizado: operação marcada como "completed".');
+        $oh->log($opId, 'payment_finalized', 'Pagamento finalizado: operação marcada como "Completo".');
 
         header('Location: /operations/' . $opId);
         exit;
     }
+
 
     /** Helper: escapa rapidamente (atalho) */
     private function esc(string $v): string

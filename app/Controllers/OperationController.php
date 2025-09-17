@@ -108,41 +108,78 @@ final class OperationController extends Controller
             return;
         }
 
-        // IDs opcionais -> armazenar como NULL quando vierem vazios/0
+        // Normaliza due_date (aceita dd/mm/aaaa)
+        $dueDb = null;
+        if ($due !== '') {
+            if (preg_match('#^(\d{2})/(\d{2})/(\d{4})$#', $due, $m)) {
+                $dueDb = sprintf('%04d-%02d-%02d', (int)$m[3], (int)$m[2], (int)$m[1]);
+            } else {
+                $dueDb = $due; // assume já em YYYY-MM-DD
+            }
+        }
+
+        // Normaliza amount (remove milhar, vírgula vira ponto)
+        $amountDb = null;
+        if ($amount !== '') {
+            $tmp = preg_replace('/[^\d.,-]/', '', $amount);
+            if (strpos($tmp, ',') !== false && strpos($tmp, '.') !== false) {
+                $tmp = str_replace('.', '', $tmp); // remove milhar
+            }
+            $tmp = str_replace(',', '.', $tmp);
+            $amountDb = is_numeric($tmp) ? $tmp : null;
+        }
+
+        // IDs opcionais -> NULL quando vazios/0
         $r1  = (int)($_POST['responsible_user_id']       ?? 0);
         $r2  = (int)($_POST['stage2_reviewer_user_id']   ?? 0);
         $r3  = (int)($_POST['stage3_reviewer_user_id']   ?? 0);
         $pm  = (int)($_POST['payment_manager_user_id']   ?? 0);
         $fin = (int)($_POST['payment_finalizer_user_id'] ?? 0);
-        $rej = (int)($_POST['rejection_notify_user_id']  ?? 0);
 
+        // Reprovação: múltiplos (até 2)
+        $rejIds = array_map('intval', (array)($_POST['rejection_notify_user_ids'] ?? []));
+        $rejIds = array_values(array_unique(array_filter($rejIds)));
+        $rejIds = array_slice($rejIds, 0, 2);
+
+        // IMPORTANTE: não enviamos 'status' aqui; deixamos o DEFAULT do banco
         $data = [
             'title'  => $title,
             'code'   => ($code !== '' ? $code : null),
             'issuer' => $issuer,
-            'due_date' => ($due !== '' ? $due : null),
-            'amount'   => ($amount !== '' ? $amount : null),
-            'status'   => 'draft',
+            'due_date' => $dueDb,
+            'amount'   => $amountDb,
 
             'responsible_user_id'       => ($r1  ?: null),
             'stage2_reviewer_user_id'   => ($r2  ?: null),
             'stage3_reviewer_user_id'   => ($r3  ?: null),
             'payment_manager_user_id'   => ($pm  ?: null),
             'payment_finalizer_user_id' => ($fin ?: null),
-            'rejection_notify_user_id'  => ($rej ?: null),
+
+            // coluna legada fica nula; lista múltipla vai à tabela auxiliar
+            'rejection_notify_user_id'  => null,
         ];
 
         try {
             $id = $this->repo->create($data);
+
+            // Persistir recipients de reprovação
+            if (!empty($rejIds)) {
+                if (class_exists(\App\Repositories\OperationNotifyRepository::class)) {
+                    (new \App\Repositories\OperationNotifyRepository())->replaceRecipients($id, $rejIds);
+                } else {
+                    // Fallback: salva só o primeiro na coluna legada
+                    $this->repo->updateRecipients($id, [
+                        'rejection_notify_user_id' => $rejIds[0] ?? null,
+                    ]);
+                }
+            }
         } catch (\InvalidArgumentException $e) {
             http_response_code(422);
             echo htmlspecialchars($e->getMessage(), ENT_QUOTES, 'UTF-8');
             return;
         } catch (\PDOException $e) {
-            // Loga para diagnóstico
             error_log('[operation_create_error] ' . $e->getMessage());
 
-            // Mensagem amigável para violação de UNIQUE (ex.: code duplicado)
             $msg = $e->getMessage();
             if (stripos($msg, '1062') !== false || stripos($msg, 'duplicate') !== false) {
                 http_response_code(409);
@@ -206,11 +243,35 @@ final class OperationController extends Controller
             'stage3_reviewer_user_id'   => (int)($_POST['stage3_reviewer_user_id'] ?? 0) ?: null,
             'payment_manager_user_id'   => (int)($_POST['payment_manager_user_id'] ?? 0) ?: null,
             'payment_finalizer_user_id' => (int)($_POST['payment_finalizer_user_id'] ?? 0) ?: null,
-            'rejection_notify_user_id'  => (int)($_POST['rejection_notify_user_id'] ?? 0) ?: null,
+
+            // manter coluna antiga nula quando usamos recipients múltiplos
+            'rejection_notify_user_id'  => null,
         ];
+
+        // reprovação múltipla no update
+        $rejIds = array_map('intval', (array)($_POST['rejection_notify_user_ids'] ?? []));
+        $rejIds = array_values(array_unique(array_filter($rejIds)));
+        $rejIds = array_slice($rejIds, 0, 2);
 
         try {
             $this->repo->updateRecipients($id, $data);
+
+            if (!empty($rejIds)) {
+                if (class_exists(\App\Repositories\OperationNotifyRepository::class)) {
+                    (new \App\Repositories\OperationNotifyRepository())->replaceRecipients($id, $rejIds);
+                } else {
+                    $this->repo->updateRecipients($id, [
+                        'rejection_notify_user_id' => $rejIds[0] ?? null,
+                    ]);
+                }
+            } else {
+                if (class_exists(\App\Repositories\OperationNotifyRepository::class)) {
+                    (new \App\Repositories\OperationNotifyRepository())->replaceRecipients($id, []);
+                } else {
+                    $this->repo->updateRecipients($id, ['rejection_notify_user_id' => null]);
+                }
+            }
+
             if (class_exists(OperationHistoryRepository::class)) {
                 (new OperationHistoryRepository())->log($id, 'recipients_updated', 'Destinatários/validadores atualizados.');
             }

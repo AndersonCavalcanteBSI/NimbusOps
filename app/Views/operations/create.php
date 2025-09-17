@@ -94,7 +94,7 @@
                 </select>
             </div>
 
-            <div class="col-md-6">
+            <!--<div class="col-md-6">
                 <label class="form-label">Reprovação — Notificar</label>
                 <select class="form-select" name="rejection_notify_user_id">
                     <option value="">— Selecionar —</option>
@@ -104,6 +104,20 @@
                         </option>
                     <?php endforeach; ?>
                 </select>
+            </div>-->
+
+            <div class="col-md-6">
+                <label class="form-label">Notificar em caso de reprovação</label>
+                <select name="rejection_notify_user_ids[]" class="form-select" multiple size="6">
+                    <option value="">— Selecionar —</option>
+                    <?php foreach (($users ?? []) as $u): ?>
+                        <option value="<?= (int)$u['id'] ?>">
+                            <?= htmlspecialchars($u['name']) ?> — <?= htmlspecialchars($u['email']) ?>
+                        </option>
+                    <?php endforeach; ?>
+                    </option>
+                </select>
+                <div class="form-text">Segure Ctrl (Windows) ou Cmd (macOS) para selecionar dois usuários.</div>
             </div>
 
             <div class="col-md-6">
@@ -125,5 +139,20 @@
         <a class="btn btn-outline-secondary" href="/operations">Cancelar</a>
     </div>
 </form>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const sel = document.querySelector('select[name="rejection_notify_user_ids[]"]');
+        if (!sel) return;
+        sel.addEventListener('change', function() {
+            const selected = Array.from(this.options).filter(o => o.selected);
+            if (selected.length > 2) {
+                // desmarca o primeiro selecionado para manter só 2
+                selected[0].selected = false;
+            }
+        });
+    });
+</script>
+
 
 <?php include __DIR__ . '/../layout/footer.php'; ?>

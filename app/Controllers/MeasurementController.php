@@ -11,6 +11,7 @@ use App\Repositories\OperationHistoryRepository;
 use App\Repositories\MeasurementFileRepository;
 use App\Repositories\MeasurementReviewRepository;
 use App\Repositories\UserRepository;
+use App\Repositories\OperationNotifyRepository;
 
 final class MeasurementController extends Controller
 {
@@ -271,24 +272,39 @@ final class MeasurementController extends Controller
         $op = $opRepo->find($opId);
 
         if ($decision === 'rejected') {
-            // Recusa: seta status e notifica destinatário pré-definido
-            /*$pdo->prepare('UPDATE operations SET status = "rejected" WHERE id = :id')->execute([':id' => $opId]);
-            $ohRepo->log($opId, 'status_changed', "Medição reprovada na {$stage}ª validação. Observações: " . $notes);*/
+            // Marca status e registra log
             $this->setStatus($opId, self::ST_RECUSADO, "Medição reprovada na {$stage}ª validação.");
             $ohRepo->log($opId, 'measurement', "Reprovação na {$stage}ª validação. Observações: " . $notes);
 
-            $rejId = (int)($op['rejection_notify_user_id'] ?? 0);
-            if ($rejId) {
-                $u = $userRepo->findBasic($rejId);
-                if ($u) {
-                    $base = rtrim($_ENV['APP_URL'] ?? '', '/');
-                    $subject = $this->mailSubject($op, 'Medição reprovada');
+            // --- NOVO: busca múltiplos destinatários configurados na tabela de vínculo ---
+            $recipients = [];
+            if (class_exists(\App\Repositories\OperationNotifyRepository::class)) {
+                $rnRepo     = new OperationNotifyRepository();
+                $recipients = $rnRepo->listRecipients($opId); // [ ['id'=>..,'name'=>..,'email'=>..], ... ]
+            }
+
+            // Fallback: se ainda não houver configuração nova, usa a coluna antiga (1 usuário)
+            if (!$recipients) {
+                $rejId = (int)($op['rejection_notify_user_id'] ?? 0);
+                if ($rejId) {
+                    if ($u = $userRepo->findBasic($rejId)) {
+                        $recipients[] = $u;
+                    }
+                }
+            }
+
+            // Envia e-mail para todos os destinatários
+            if ($recipients) {
+                $base    = rtrim($_ENV['APP_URL'] ?? '', '/');
+                $subject = $this->mailSubject($op, 'Medição reprovada');
+
+                foreach ($recipients as $u) {
                     $html = '<p>A medição da operação '
                         . '<strong>#' . $opId . ($op['code'] ? ' (' . $this->esc($op['code']) . ')' : '') . '</strong> '
                         . '(' . $this->esc((string)$op['title']) . ') foi <strong>reprovada</strong> na '
                         . $stage . 'ª validação.</p>'
                         . '<p><strong>Observações:</strong><br>' . nl2br($this->esc($notes)) . '</p>';
-                    $this->smtpSend($u['email'], $u['name'], $subject, $html, $opId);
+                    $this->smtpSend($u['email'], $u['name'] ?? null, $subject, $html, $opId);
                 }
             }
 

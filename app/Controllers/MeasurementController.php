@@ -272,18 +272,42 @@ final class MeasurementController extends Controller
         $op = $opRepo->find($opId);
 
         if ($decision === 'rejected') {
-            // Marca status e registra log
-            $this->setStatus($opId, self::ST_RECUSADO, "Medição reprovada na {$stage}ª validação.");
-            $ohRepo->log($opId, 'measurement', "Reprovação na {$stage}ª validação. Observações: " . $notes);
+            // === Status de retorno por etapa ===
+            switch ($stage) {
+                case 1:
+                    $newStatus = self::ST_RECUSADO;   // 1ª: Recusado
+                    $note      = "Medição reprovada na 1ª validação.";
+                    break;
+                case 2:
+                    $newStatus = self::ST_ENGENHARIA; // 2ª: volta para Engenharia
+                    $note      = "Medição reprovada na 2ª validação. Retorno para Engenharia.";
+                    break;
+                case 3:
+                    $newStatus = self::ST_GESTAO;     // 3ª: volta para Gestão
+                    $note      = "Medição reprovada na 3ª validação. Retorno para Gestão.";
+                    break;
+                case 4:
+                    $newStatus = self::ST_JURIDICO;   // 4ª: volta para Jurídico
+                    $note      = "Medição reprovada na 4ª validação. Retorno para Jurídico.";
+                    break;
+                default:
+                    // Se houver uma 5ª etapa “Financeiro” distinta, crie uma constante e troque aqui.
+                    // No fluxo atual, usamos Pagamento como equivalente.
+                    $newStatus = self::ST_PAGAMENTO;
+                    $note      = "Medição reprovada na {$stage}ª validação. Retorno para Financeiro/Pagamento.";
+                    break;
+            }
 
-            // --- NOVO: busca múltiplos destinatários configurados na tabela de vínculo ---
+            // Atualiza status e registra log
+            $this->setStatus($opId, $newStatus, $note);
+            $ohRepo->log($opId, 'measurement', $note . ' Observações: ' . $notes);
+
+            // Destinatários de reprovação (múltiplos via tabela auxiliar; fallback na coluna antiga)
             $recipients = [];
             if (class_exists(\App\Repositories\OperationNotifyRepository::class)) {
                 $rnRepo     = new OperationNotifyRepository();
-                $recipients = $rnRepo->listRecipients($opId); // [ ['id'=>..,'name'=>..,'email'=>..], ... ]
+                $recipients = $rnRepo->listRecipients($opId);
             }
-
-            // Fallback: se ainda não houver configuração nova, usa a coluna antiga (1 usuário)
             if (!$recipients) {
                 $rejId = (int)($op['rejection_notify_user_id'] ?? 0);
                 if ($rejId) {
@@ -293,16 +317,15 @@ final class MeasurementController extends Controller
                 }
             }
 
-            // Envia e-mail para todos os destinatários
+            // Notifica todos
             if ($recipients) {
-                $base    = rtrim($_ENV['APP_URL'] ?? '', '/');
                 $subject = $this->mailSubject($op, 'Medição reprovada');
-
                 foreach ($recipients as $u) {
                     $html = '<p>A medição da operação '
                         . '<strong>#' . $opId . ($op['code'] ? ' (' . $this->esc($op['code']) . ')' : '') . '</strong> '
                         . '(' . $this->esc((string)$op['title']) . ') foi <strong>reprovada</strong> na '
                         . $stage . 'ª validação.</p>'
+                        . '<p><strong>Status atual:</strong> ' . $this->esc($newStatus) . '</p>'
                         . '<p><strong>Observações:</strong><br>' . nl2br($this->esc($notes)) . '</p>';
                     $this->smtpSend($u['email'], $u['name'] ?? null, $subject, $html, $opId);
                 }

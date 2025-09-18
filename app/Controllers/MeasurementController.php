@@ -26,16 +26,6 @@ final class MeasurementController extends Controller
     private const ST_COMPLETO   = 'Completo';
     private const ST_RECUSADO   = 'Recusado';
 
-    /** Usuário logado (fallback DEV_USER_ID quando não há auth) */
-    /*private function currentUserId(): ?int
-    {
-        if (isset($_SESSION['user_id'])) {
-            return (int)$_SESSION['user_id'];
-        }
-        $dev = (int)($_ENV['DEV_USER_ID'] ?? 0);
-        return $dev > 0 ? $dev : null;
-    }*/
-
     /** Usuário logado (usa DEV_USER_ID apenas em ambiente de desenvolvimento) */
     private function currentUserId(): ?int
     {
@@ -71,14 +61,12 @@ final class MeasurementController extends Controller
     private function normalizeStatus(string $s): string
     {
         $s = trim($s);
-        // remove acentos (Intl transliterator se disponível)
         if (class_exists(\Transliterator::class)) {
             $tr = \Transliterator::create('NFD; [:Nonspacing Mark:] Remove; NFC');
             if ($tr) {
                 $s = $tr->transliterate($s);
             }
         } else {
-            // fallback simples
             $from = ['á', 'à', 'â', 'ã', 'ä', 'é', 'è', 'ê', 'í', 'ì', 'î', 'ï', 'ó', 'ò', 'ô', 'õ', 'ö', 'ú', 'ù', 'û', 'ü', 'ç', 'Á', 'À', 'Â', 'Ã', 'Ä', 'É', 'È', 'Ê', 'Í', 'Ì', 'Î', 'Ï', 'Ó', 'Ò', 'Ô', 'Õ', 'Ö', 'Ú', 'Ù', 'Û', 'Ü', 'Ç'];
             $to   = ['a', 'a', 'a', 'a', 'a', 'e', 'e', 'e', 'i', 'i', 'i', 'i', 'o', 'o', 'o', 'o', 'o', 'u', 'u', 'u', 'u', 'c', 'A', 'A', 'A', 'A', 'A', 'E', 'E', 'E', 'I', 'I', 'I', 'I', 'O', 'O', 'O', 'O', 'O', 'U', 'U', 'U', 'U', 'C'];
             $s = str_replace($from, $to, $s);
@@ -228,6 +216,12 @@ final class MeasurementController extends Controller
             return;
         }
 
+        // Se a medição já estiver concluída, vá para o histórico
+        if (isset($file['status']) && mb_strtolower((string)$file['status'], 'UTF-8') === mb_strtolower('Concluído', 'UTF-8')) {
+            header('Location: /measurements/' . (int)$file['id'] . '/history');
+            exit;
+        }
+
         $mrRepo = new MeasurementReviewRepository();
         $mr = $mrRepo->getStage($fileId, $stage);
 
@@ -242,13 +236,12 @@ final class MeasurementController extends Controller
                 $reviewerId = (int)($op['responsible_user_id'] ?? 0);
             } elseif ($stage === 2) {
                 $reviewerId = (int)($op['stage2_reviewer_user_id'] ?? 0);
-            } elseif ($stage === 3) { // 3ª validação
+            } elseif ($stage === 3) {
                 $reviewerId = (int)($op['stage3_reviewer_user_id'] ?? 0);
-            } elseif ($stage === 4) { // 4ª validação (gestão de pagamentos)
+            } elseif ($stage === 4) {
                 $reviewerId = (int)($op['payment_manager_user_id'] ?? 0);
             }
 
-            // fallback: primeiro usuário ativo
             if (!$reviewerId) {
                 $reviewerId = (int)($pdo->query('SELECT id FROM users WHERE active = 1 ORDER BY id ASC LIMIT 1')->fetchColumn() ?: 0);
             }
@@ -264,8 +257,6 @@ final class MeasurementController extends Controller
         }
 
         // ==== PERMISSÃO DE QUEM PODE ANALISAR ====
-        // Em ambiente sem auth (ou sem DEV_USER_ID), não bloqueamos.
-        // Se houver user identificado, aplicamos o gate completo.
         $opId   = (int)$file['operation_id'];
         $opRepo = new OperationRepository();
         $op     = $opRepo->find($opId);
@@ -273,24 +264,19 @@ final class MeasurementController extends Controller
         $uid        = $this->currentUserId();
         $requiredSt = $this->requiredStatusForStage($stage);
 
-        if ($uid) {
-            // 1) status da operação precisa bater com a etapa (comparação tolerante)
+        // leitura-apenas quando operação = Completo OU arquivo = Concluído
+        $readOnly = $this->statusEquals((string)($op['status'] ?? ''), self::ST_COMPLETO)
+            || (isset($file['status']) && mb_strtolower((string)$file['status'], 'UTF-8') === mb_strtolower('Concluído', 'UTF-8'));
+
+        if (!$readOnly && $uid) {
             if ($requiredSt && !$this->statusEquals((string)($op['status'] ?? ''), $requiredSt)) {
                 http_response_code(403);
                 echo 'Esta etapa não está disponível no status atual da operação.';
                 return;
             }
 
-            /*// 2) só o revisor designado pode analisar (aceita reviewer_user_id ou reviewer_id)
             $expectedReviewerId = $this->reviewerIdFrom((array)$mr);
             if ($uid !== $expectedReviewerId) {
-                http_response_code(403);
-                echo 'Você não é o revisor desta etapa.';
-                return;
-            }*/
-            $expectedReviewerId = $this->reviewerIdFrom((array)$mr);
-            if ($uid !== $expectedReviewerId) {
-                // Se estiver em modo debug, ajuda a identificar a causa
                 if (strtolower((string)($_ENV['APP_DEBUG'] ?? 'false')) === 'true') {
                     error_log(sprintf(
                         '[reviewForm] Bloqueado: uid=%s, expected=%s, stage=%d, file=%d',
@@ -307,7 +293,6 @@ final class MeasurementController extends Controller
                 return;
             }
 
-            // 3) etapa precisa estar pendente
             if (isset($mr['status']) && $mr['status'] !== 'pending') {
                 http_response_code(403);
                 echo 'Esta etapa já foi analisada. Aguarde as próximas validações.';
@@ -315,7 +300,7 @@ final class MeasurementController extends Controller
             }
         }
 
-        // revisões anteriores
+        // revisões anteriores (repo já usa measurement_file_id internamente)
         $prev = $mrRepo->listByFile($fileId);
 
         // Pagamentos (somente na 4ª etapa)
@@ -331,7 +316,8 @@ final class MeasurementController extends Controller
             'operationId' => (int)$file['operation_id'],
             'stage'       => $stage,
             'previous'    => $prev,
-            'payments'    => $payments, // para a etapa 4
+            'payments'    => $payments,
+            'readOnly'    => $readOnly,
         ]);
     }
 
@@ -385,21 +371,21 @@ final class MeasurementController extends Controller
         $opCheck    = (new OperationRepository())->find($opIdCheck);
         $requiredSt = $this->requiredStatusForStage($stage);
 
+        // trava também por status do arquivo (medição)
+        $fileStatus = (string)\Core\Database::pdo()->query('SELECT status FROM measurement_files WHERE id=' . (int)$fileId)->fetchColumn();
+
+        if ($this->statusEquals((string)($opCheck['status'] ?? ''), self::ST_COMPLETO) || mb_strtolower($fileStatus, 'UTF-8') === mb_strtolower('Concluído', 'UTF-8')) {
+            http_response_code(403);
+            echo 'Medição finalizada — somente leitura.';
+            return;
+        }
+
         if ($uid) {
-            // status precisa corresponder (tolerante a acentos/caixa/espaços)
             if ($requiredSt && !$this->statusEquals((string)($opCheck['status'] ?? ''), $requiredSt)) {
                 http_response_code(403);
                 echo 'Esta etapa não está disponível no status atual da operação.';
                 return;
             }
-
-            // somente o revisor designado
-            /*$expectedReviewerId = $this->reviewerIdFrom((array)$stageRow);
-            if ($uid !== $expectedReviewerId) {
-                http_response_code(403);
-                echo 'Você não é o revisor desta etapa.';
-                return;
-            }*/
 
             $expectedReviewerId = $this->reviewerIdFrom((array)$stageRow);
             if ($uid !== $expectedReviewerId) {
@@ -419,7 +405,6 @@ final class MeasurementController extends Controller
                 return;
             }
 
-            // precisa estar pendente
             if (isset($stageRow['status']) && $stageRow['status'] !== 'pending') {
                 http_response_code(403);
                 echo 'Esta etapa já foi analisada. Aguarde as próximas validações.';
@@ -442,19 +427,19 @@ final class MeasurementController extends Controller
             // === Status de retorno por etapa ===
             switch ($stage) {
                 case 1:
-                    $newStatus = self::ST_RECUSADO;   // 1ª: Recusado
+                    $newStatus = self::ST_RECUSADO;
                     $note      = "Medição reprovada na 1ª validação.";
                     break;
                 case 2:
-                    $newStatus = self::ST_ENGENHARIA; // 2ª: volta para Engenharia
+                    $newStatus = self::ST_ENGENHARIA;
                     $note      = "Medição reprovada na 2ª validação. Retorno para Engenharia.";
                     break;
                 case 3:
-                    $newStatus = self::ST_GESTAO;     // 3ª: volta para Gestão
+                    $newStatus = self::ST_GESTAO;
                     $note      = "Medição reprovada na 3ª validação. Retorno para Gestão.";
                     break;
                 case 4:
-                    $newStatus = self::ST_JURIDICO;   // 4ª: volta para Jurídico
+                    $newStatus = self::ST_JURIDICO;
                     $note      = "Medição reprovada na 4ª validação. Retorno para Jurídico.";
                     break;
                 default:
@@ -471,9 +456,10 @@ final class MeasurementController extends Controller
             if ($stage > 1) {
                 $prevStage = $stage - 1;
                 $up = $pdo->prepare(
+                    // >>> AQUI: usar a coluna correta measurement_file_id
                     'UPDATE measurement_reviews
                         SET status = "pending", reviewed_at = NULL
-                      WHERE file_id = :f AND stage = :s'
+                      WHERE measurement_file_id = :f AND stage = :s'
                 );
                 $up->execute([':f' => $fileId, ':s' => $prevStage]);
             }
@@ -484,7 +470,6 @@ final class MeasurementController extends Controller
 
         // ===== Aprovado neste estágio =====
         if ($stage === 1) {
-            // Cria etapa 2 e notifica o segundo revisor
             $stage2UserId = (int)($op['stage2_reviewer_user_id'] ?? 0);
             if ($stage2UserId) {
                 if (!$mrRepo->getStage($fileId, 2)) {
@@ -505,7 +490,6 @@ final class MeasurementController extends Controller
             $this->setStatus($opId, self::ST_GESTAO, 'Aprovada na 1ª validação; próxima etapa: Gestão.');
             $ohRepo->log($opId, 'measurement', 'Medição aprovada na 1ª validação. Observações: ' . $notes);
         } elseif ($stage === 2) {
-            // Cria etapa 3 e notifica o 3º revisor
             $stage3UserId = (int)($op['stage3_reviewer_user_id'] ?? 0);
             if ($stage3UserId) {
                 if (!$mrRepo->getStage($fileId, 3)) {
@@ -526,7 +510,6 @@ final class MeasurementController extends Controller
             $this->setStatus($opId, self::ST_JURIDICO, 'Aprovada na 2ª validação; próxima etapa: Jurídico.');
             $ohRepo->log($opId, 'measurement', 'Medição aprovada na 2ª validação. Observações: ' . $notes);
         } elseif ($stage === 3) {
-            // Etapa 3 aprovada: cria etapa 4 (gestão de pagamentos) e notifica para /review/4
             $this->setStatus($opId, self::ST_PAGAMENTO, 'Aprovada na 3ª validação; próxima etapa: Pagamento.');
             $ohRepo->log($opId, 'measurement', 'Medição aprovada na 3ª validação. Observações: ' . $notes);
 
@@ -566,7 +549,6 @@ final class MeasurementController extends Controller
                 $this->setStatus($opId, self::ST_FINALIZAR, 'Pagamentos verificados; pronto para finalizar.');
                 $ohRepo->log($opId, 'payment_checked', '4ª etapa aprovada: pagamentos registrados/verificados. Observações: ' . $notes);
             }
-            // Se "rejected", o bloco de recusa acima já cuidou (status + reabertura da etapa anterior)
         }
 
         header('Location: /operations/' . $opId);
@@ -649,7 +631,7 @@ final class MeasurementController extends Controller
         $oh = new \App\Repositories\OperationHistoryRepository();
         $oh->log($opId, 'payment_recorded', 'Pagamentos registrados para a medição #' . $fileId . ' (itens: ' . $inserted . ').');
 
-        // ===== FASE 7: notifica o "finalizador" com histórico completo + link para finalizar =====
+        // notifica o "finalizador" com histórico + link
         $opRepo   = new \App\Repositories\OperationRepository();
         $userRepo = new \App\Repositories\UserRepository();
         $op       = $opRepo->find($opId);
@@ -668,7 +650,6 @@ final class MeasurementController extends Controller
             }
         }
 
-        // redirect com mensagem de orientação
         header('Location: /measurements/' . $fileId . '/payments/new?ok=1');
         exit;
     }
@@ -798,7 +779,7 @@ final class MeasurementController extends Controller
         ]);
     }
 
-    /** POST: Confirma finalização => status = Completo */
+    /** POST: Confirma finalização => marca OP=Completo e arquivo=Concluído */
     public function finalizeSubmit(int $fileId): void
     {
         $pdo = \Core\Database::pdo();
@@ -810,14 +791,19 @@ final class MeasurementController extends Controller
             return;
         }
 
-        // Atualiza status para "Completo"
+        // 1) Marca a OP como Completo
         $this->setStatus($opId, self::ST_COMPLETO, 'Pagamento finalizado.');
 
-        // Log complementar (mantém trilha separada do status_changed feito no setStatus)
-        $oh = new \App\Repositories\OperationHistoryRepository();
-        $oh->log($opId, 'payment_finalized', 'Pagamento finalizado: operação marcada como "Completo".');
+        // 2) Marca a MEDIÇÃO (arquivo) como Concluído
+        $st = $pdo->prepare('UPDATE measurement_files SET status = :s, closed_at = NOW() WHERE id = :id');
+        $st->execute([':s' => 'Concluído', ':id' => $fileId]);
 
-        header('Location: /operations/' . $opId);
+        // Log
+        $oh = new \App\Repositories\OperationHistoryRepository();
+        $oh->log($opId, 'payment_finalized', 'Medição #' . (int)$fileId . ' marcada como "Concluído" e operação como "Completo".');
+
+        // Vai para o histórico da medição
+        header('Location: /measurements/' . (int)$fileId . '/history');
         exit;
     }
 
@@ -852,5 +838,43 @@ final class MeasurementController extends Controller
             $_SESSION['flash_mail_error'] = $e->getMessage();
             return false;
         }
+    }
+
+    /** GET: Histórico completo e somente leitura da medição */
+    public function history(int $fileId): void
+    {
+        $pdo = \Core\Database::pdo();
+
+        // arquivo + operação
+        $st = $pdo->prepare(
+            'SELECT mf.*, o.title AS op_title, o.id AS op_id, o.status AS op_status
+           FROM measurement_files mf
+           JOIN operations o ON o.id = mf.operation_id
+          WHERE mf.id = :id'
+        );
+        $st->execute([':id' => $fileId]);
+        $file = $st->fetch();
+        if (!$file) {
+            http_response_code(404);
+            echo 'Medição não encontrada';
+            return;
+        }
+
+        $mrRepo  = new \App\Repositories\MeasurementReviewRepository();
+        // Repo deve consultar measurement_reviews.medication_file_id; aqui passamos o ID da medição
+        $reviews = $mrRepo->listByFile($fileId);
+
+        $payments = [];
+        if (class_exists(\App\Repositories\MeasurementPaymentRepository::class)) {
+            $pRepo    = new \App\Repositories\MeasurementPaymentRepository();
+            $payments = $pRepo->listByMeasurement($fileId);
+        }
+
+        $this->view('measurements/history', [
+            'file'        => $file,
+            'operationId' => (int)$file['op_id'],
+            'reviews'     => $reviews,
+            'payments'    => $payments,
+        ]);
     }
 }

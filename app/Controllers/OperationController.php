@@ -17,16 +17,6 @@ final class OperationController extends Controller
         private readonly OperationHistoryRepository $hist = new OperationHistoryRepository()
     ) {}
 
-    /** Usuário atual (usa DEV_USER_ID como fallback em dev) */
-    /*private function currentUserId(): ?int
-    {
-        if (isset($_SESSION['user_id'])) {
-            return (int)$_SESSION['user_id'];
-        }
-        $dev = (int)($_ENV['DEV_USER_ID'] ?? 0);
-        return $dev > 0 ? $dev : null;
-    }*/
-
     /** Usuário atual (usa DEV_USER_ID apenas em dev) */
     private function currentUserId(): ?int
     {
@@ -94,8 +84,8 @@ final class OperationController extends Controller
 
         $history = $this->hist->listByOperation($id);
 
-        $mfRepo = new \App\Repositories\MeasurementFileRepository();
-        $files  = $mfRepo->listByOperation($id);
+        $mfRepo  = new \App\Repositories\MeasurementFileRepository();
+        $files   = $mfRepo->listByOperation($id);
         $pending = $mfRepo->hasPendingAnalysis($id);
 
         // Próxima etapa pendente + se o usuário pode analisar
@@ -105,40 +95,33 @@ final class OperationController extends Controller
 
         foreach ($files as &$f) {
             $fileId = (int)$f['id'];
-            $next   = $revRepo->nextPendingStage($fileId) ?? 1;
+
+            // >>> SEMPRE definir campos utilizados na view (evita notices)
+            $f['history_url'] = '/measurements/' . $fileId . '/history';
+            $f['file_status'] = (string)($f['status'] ?? '');
+            $f['can_review']  = false;
+            $f['review_url']  = null;
+
+            // Próxima etapa (pode ser útil na UI)
+            $next = $revRepo->nextPendingStage($fileId) ?? 1;
             $f['next_stage'] = $next;
 
-            // default
-            $f['can_review'] = false;
-
-            // status exigido para a etapa
+            // Gate para saber se mostra "Analisar"
             $required = $this->requiredStatusForStage((int)$next);
             if (!$required || (($op['status'] ?? null) !== $required)) {
-                continue;
+                continue; // já temos history_url/file_status populados
             }
-
-            /*
-            // obter a linha da etapa
-            $mr = $revRepo->getStage($fileId, (int)$next);
-            if (!$mr) {
-                continue;
-            }
-
-            // só o revisor designado, e a etapa precisa estar 'pending'
-            if ($uid && (int)($mr['reviewer_user_id'] ?? 0) === $uid && ($mr['status'] ?? 'pending') === 'pending') {
-                $f['can_review'] = true;
-                $f['review_url'] = ($baseUrl !== '' ? $baseUrl : '') . '/measurements/' . $fileId . '/review/' . (int)$next;
-            }*/
 
             $mr = $revRepo->getStage($fileId, (int)$next);
             if (!$mr) {
-                continue;
+                continue; // idem
             }
+
             $revId = (int)($mr['reviewer_user_id'] ?? $mr['reviewer_id'] ?? 0);
-
             if ($uid && $revId === $uid && ($mr['status'] ?? 'pending') === 'pending') {
                 $f['can_review'] = true;
-                $f['review_url'] = ($baseUrl !== '' ? $baseUrl : '') . '/measurements/' . $fileId . '/review/' . (int)$next;
+                $f['review_url'] = ($baseUrl !== '' ? $baseUrl : '')
+                    . '/measurements/' . $fileId . '/review/' . (int)$next;
             }
         }
         unset($f);
@@ -167,7 +150,7 @@ final class OperationController extends Controller
         $users = (new UserRepository())->allActive();
         $this->view('operations/create', [
             'users' => $users,
-            'op'    => null,   // importante para a view saber que é criação
+            'op'    => null, // importante para a view saber que é criação
         ]);
     }
 

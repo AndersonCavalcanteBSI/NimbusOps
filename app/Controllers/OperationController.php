@@ -84,8 +84,8 @@ final class OperationController extends Controller
 
         $history = $this->hist->listByOperation($id);
 
-        $mfRepo  = new \App\Repositories\MeasurementFileRepository();
-        $files   = $mfRepo->listByOperation($id);
+        $mfRepo = new \App\Repositories\MeasurementFileRepository();
+        $files  = $mfRepo->listByOperation($id);
         $pending = $mfRepo->hasPendingAnalysis($id);
 
         // Próxima etapa pendente + se o usuário pode analisar
@@ -96,32 +96,45 @@ final class OperationController extends Controller
         foreach ($files as &$f) {
             $fileId = (int)$f['id'];
 
-            // >>> SEMPRE definir campos utilizados na view (evita notices)
-            $f['history_url'] = '/measurements/' . $fileId . '/history';
-            $f['file_status'] = (string)($f['status'] ?? '');
-            $f['can_review']  = false;
-            $f['review_url']  = null;
+            // Status do arquivo (pode ser "Concluído", etc.)
+            $rawFileStatus = (string)($f['status'] ?? '');
+            $isConcluded   = mb_strtolower(trim($rawFileStatus), 'UTF-8') === mb_strtolower('Concluído', 'UTF-8');
 
-            // Próxima etapa (pode ser útil na UI)
+            // Expor sempre um campo amigável para a view
+            $f['file_status'] = $rawFileStatus !== '' ? (string)$rawFileStatus : 'Pendente';
+
+            // Próxima etapa pendente (quando não concluído)
             $next = $revRepo->nextPendingStage($fileId) ?? 1;
             $f['next_stage'] = $next;
 
-            // Gate para saber se mostra "Analisar"
+            // default
+            $f['can_review'] = false;
+            unset($f['review_url']); // evita notice quando a view tenta renderizar
+
+            // Link de histórico: sempre preencher para evitar notice na view
+            $f['history_url'] = ($baseUrl !== '' ? $baseUrl : '') . '/measurements/' . $fileId . '/history';
+
+            // Se a medição já estiver concluída, não exibir "Analisar"
+            if ($isConcluded) {
+                continue;
+            }
+
+            // status exigido para a etapa
             $required = $this->requiredStatusForStage((int)$next);
             if (!$required || (($op['status'] ?? null) !== $required)) {
-                continue; // já temos history_url/file_status populados
+                continue;
             }
 
+            // obter a linha da etapa
             $mr = $revRepo->getStage($fileId, (int)$next);
             if (!$mr) {
-                continue; // idem
+                continue;
             }
-
             $revId = (int)($mr['reviewer_user_id'] ?? $mr['reviewer_id'] ?? 0);
+
             if ($uid && $revId === $uid && ($mr['status'] ?? 'pending') === 'pending') {
                 $f['can_review'] = true;
-                $f['review_url'] = ($baseUrl !== '' ? $baseUrl : '')
-                    . '/measurements/' . $fileId . '/review/' . (int)$next;
+                $f['review_url'] = ($baseUrl !== '' ? $baseUrl : '') . '/measurements/' . $fileId . '/review/' . (int)$next;
             }
         }
         unset($f);
@@ -150,7 +163,7 @@ final class OperationController extends Controller
         $users = (new UserRepository())->allActive();
         $this->view('operations/create', [
             'users' => $users,
-            'op'    => null, // importante para a view saber que é criação
+            'op'    => null,
         ]);
     }
 
@@ -198,7 +211,7 @@ final class OperationController extends Controller
         $fin = (int)($_POST['payment_finalizer_user_id'] ?? 0);
 
         // Reprovação: múltiplos (até 2)
-        $rejIds = array_map('intval', (array)($_POST['rejection_notify_user_ids'] ?? []));
+        $rejIds = array_map('intval', (array)$_POST['rejection_notify_user_ids'] ?? []);
         $rejIds = array_values(array_unique(array_filter($rejIds)));
         $rejIds = array_slice($rejIds, 0, 2);
 

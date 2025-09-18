@@ -132,11 +132,19 @@ $fmt = function (?string $d): string {
                                             <?php endif; ?>
                                         </td>
                                         <td class="text-end">
-                                            <button class="btn btn-sm btn-outline-secondary" type="button"
+                                            <!--<button class="btn btn-sm btn-outline-secondary" type="button"
                                                 data-bs-toggle="collapse" data-bs-target="#fileHist<?= (int)$f['id'] ?>">
                                                 Ver histórico
-                                            </button>
-                                            <!-- aqui você pode adicionar um botão de download/abrir -->
+                                            </button>-->
+                                            <a class="btn btn-sm btn-outline-secondary" href="<?= htmlspecialchars($f['history_url']) ?>">
+                                                Ver histórico
+                                            </a>
+                                            <?php if (!empty($f['file_status'])): ?>
+                                                <span class="badge bg-<?= $f['file_status'] === 'Concluído' ? 'success' : 'secondary' ?>">
+                                                    <?= htmlspecialchars($f['file_status']) ?>
+                                                </span>
+                                            <?php endif; ?>
+
                                         </td>
                                     </tr>
                                     <tr class="collapse" id="fileHist<?= (int)$f['id'] ?>">

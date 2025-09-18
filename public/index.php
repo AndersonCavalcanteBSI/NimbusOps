@@ -82,7 +82,6 @@ $router->post('/auth/local', fn() => (new AuthController())->loginPost());
 $router->get('/auth/login', fn() => (new AuthController())->localForm());
 
 // Fluxo Microsoft (liberado no middleware)
-//$router->get('/auth/microsoft', fn() => (new AuthController())->microsoftStart('login'));
 $router->get('/auth/microsoft', fn() => (new AuthController())->microsoftStart());
 $router->get('/auth/callback',  fn() => (new AuthController())->microsoftCallback());
 
@@ -100,6 +99,9 @@ $router->get('/operations/{id}', fn(string $id) => (new OperationController())->
 // Upload
 $router->get('/measurements/upload', fn() => (new MeasurementController())->create());
 $router->post('/measurements/upload', fn() => (new MeasurementController())->store());
+
+// **NOVO**: Histórico da medição (somente leitura)
+$router->get('/measurements/{id}/history', fn(string $id) => (new MeasurementController())->history((int)$id));
 
 // Review 1 (atalho)
 $router->get('/measurements/{id}/review', fn(string $id) => (new MeasurementController())->reviewForm((int)$id, 1));
@@ -134,9 +136,8 @@ $router->post('/users',              $adminOnly(fn() => (new UserController())->
 $router->get('/users/{id}/edit',     $adminOnly(fn(string $id) => (new UserController())->edit((int)$id)));
 $router->post('/users/{id}',         $adminOnly(fn(string $id) => (new UserController())->update((int)$id)));
 
-// Vínculo Microsoft (desvincular) — exige sessão (não está na whitelist do middleware)
-//$router->post('/auth/unlink', fn() => (new AuthController())->unlinkMicrosoft());
-$router->get('/auth/microsoft/unlink',    fn() => (new AuthController())->unlinkMicrosoft());
+// Vínculo Microsoft (desvincular)
+$router->get('/auth/microsoft/unlink', fn() => (new AuthController())->unlinkMicrosoft());
 
 // Compat antigo GET "analyzed" -> review/1
 $router->get('/measurements/{id}/analyzed', function (string $id) {

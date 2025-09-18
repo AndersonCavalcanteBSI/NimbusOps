@@ -102,8 +102,9 @@ $fmt = function (?string $d): string {
                             <tbody>
                                 <?php foreach ($files as $f): ?>
                                     <?php
-                                    $pending = empty($f['analyzed_at']);
-                                    $histList = $filesHistory[$f['id']] ?? [];
+                                    $histList   = $filesHistory[$f['id']] ?? [];
+                                    $fileStatus = (string)($f['file_status'] ?? '');
+                                    $isDone     = (mb_strtolower($fileStatus, 'UTF-8') === mb_strtolower('Concluído', 'UTF-8'));
                                     ?>
                                     <tr>
                                         <td>
@@ -112,58 +113,21 @@ $fmt = function (?string $d): string {
                                         </td>
                                         <td><?= $fmt($f['uploaded_at'] ?? null) ?></td>
                                         <td>
-                                            <?php if (empty($f['analyzed_at'])): ?>
-                                                <span class="badge text-bg-warning">Pendente</span>
-                                                <?php if (\App\Security\CurrentUser::isDev()): ?>
-                                                    <form action="/measurements/<?= (int)$f['id'] ?>/analyze" method="post" class="d-inline ms-2">
-                                                        <!--<button class="btn btn-sm btn-success">Marcar como analisado</button>-->
-                                                        <!--<a class="btn btn-sm btn-primary" href="/measurements/<?= (int)$f['id'] ?>/review">Analisar</a>-->
-                                                        <a class="btn btn-sm btn-primary"
-                                                            href="/measurements/<?= (int)$f['id'] ?>/review/<?= (int)($f['next_stage'] ?? 1) ?>">
-                                                            Analisar<?= isset($f['next_stage']) ? ' (' . $f['next_stage'] . 'ª)' : '' ?>
-                                                        </a>
-
-                                                    </form>
-                                                <?php endif; ?>
+                                            <?php if ($isDone): ?>
+                                                <span class="badge text-bg-success">Concluído</span>
                                             <?php else: ?>
-                                                <span class="badge text-bg-success">
-                                                    Analisado em <?= $fmt($f['analyzed_at'] ?? null) ?>
-                                                </span>
+                                                <span class="badge text-bg-warning">Pendente</span>
                                             <?php endif; ?>
                                         </td>
-                                        <td class="text-end">
-                                            <!--<button class="btn btn-sm btn-outline-secondary" type="button"
-                                                data-bs-toggle="collapse" data-bs-target="#fileHist<?= (int)$f['id'] ?>">
-                                                Ver histórico
-                                            </button>-->
+                                        <td class="text-end d-flex gap-2 justify-content-end">
                                             <a class="btn btn-sm btn-outline-secondary" href="<?= htmlspecialchars($f['history_url']) ?>">
                                                 Ver histórico
                                             </a>
-                                            <?php if (!empty($f['file_status'])): ?>
-                                                <span class="badge bg-<?= $f['file_status'] === 'Concluído' ? 'success' : 'secondary' ?>">
-                                                    <?= htmlspecialchars($f['file_status']) ?>
-                                                </span>
-                                            <?php endif; ?>
-
-                                        </td>
-                                    </tr>
-                                    <tr class="collapse" id="fileHist<?= (int)$f['id'] ?>">
-                                        <td colspan="4">
-                                            <?php if (!$histList): ?>
-                                                <div class="text-muted">Sem histórico para este arquivo.</div>
-                                            <?php else: ?>
-                                                <ul class="list-group list-group-flush">
-                                                    <?php foreach ($histList as $fh): ?>
-                                                        <li class="list-group-item">
-                                                            <div class="small text-muted"><?= htmlspecialchars($fh['created_at']) ?></div>
-                                                            <?php if (!empty($fh['user_name'])): ?>
-                                                                • por <?= htmlspecialchars($fh['user_name']) ?>
-                                                            <?php endif; ?>
-                                                            <strong><?= htmlspecialchars($fh['action']) ?></strong>
-                                                            <div><?= nl2br(htmlspecialchars($fh['notes'])) ?></div>
-                                                        </li>
-                                                    <?php endforeach; ?>
-                                                </ul>
+                                            <?php if (!empty($f['can_review']) && !$isDone): ?>
+                                                <a class="btn btn-sm btn-primary"
+                                                    href="/measurements/<?= (int)$f['id'] ?>/review/<?= (int)($f['next_stage'] ?? 1) ?>">
+                                                    Analisar<?= isset($f['next_stage']) ? ' (' . (int)$f['next_stage'] . 'ª)' : '' ?>
+                                                </a>
                                             <?php endif; ?>
                                         </td>
                                     </tr>

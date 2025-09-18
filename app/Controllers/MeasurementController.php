@@ -26,6 +26,79 @@ final class MeasurementController extends Controller
     private const ST_COMPLETO   = 'Completo';
     private const ST_RECUSADO   = 'Recusado';
 
+    /** Usuário logado (fallback DEV_USER_ID quando não há auth) */
+    /*private function currentUserId(): ?int
+    {
+        if (isset($_SESSION['user_id'])) {
+            return (int)$_SESSION['user_id'];
+        }
+        $dev = (int)($_ENV['DEV_USER_ID'] ?? 0);
+        return $dev > 0 ? $dev : null;
+    }*/
+
+    /** Usuário logado (usa DEV_USER_ID apenas em ambiente de desenvolvimento) */
+    private function currentUserId(): ?int
+    {
+        if (isset($_SESSION['user_id'])) {
+            return (int) $_SESSION['user_id'];
+        }
+
+        $appDebug = strtolower((string)($_ENV['APP_DEBUG'] ?? 'false')) === 'true';
+        $appEnv   = strtolower((string)($_ENV['APP_ENV']   ?? '')) === 'local';
+
+        if ($appDebug || $appEnv) {
+            $dev = (int) ($_ENV['DEV_USER_ID'] ?? 0);
+            return $dev > 0 ? $dev : null;
+        }
+
+        // Em produção, sem login => sem usuário
+        return null;
+    }
+
+    /** Status requerido para cada etapa */
+    private function requiredStatusForStage(int $stage): ?string
+    {
+        return match ($stage) {
+            1 => self::ST_ENGENHARIA,
+            2 => self::ST_GESTAO,
+            3 => self::ST_JURIDICO,
+            4 => self::ST_PAGAMENTO,
+            default => null,
+        };
+    }
+
+    /** Normaliza texto de status: trim, lowercase e remove acentos */
+    private function normalizeStatus(string $s): string
+    {
+        $s = trim($s);
+        // remove acentos (Intl transliterator se disponível)
+        if (class_exists(\Transliterator::class)) {
+            $tr = \Transliterator::create('NFD; [:Nonspacing Mark:] Remove; NFC');
+            if ($tr) {
+                $s = $tr->transliterate($s);
+            }
+        } else {
+            // fallback simples
+            $from = ['á', 'à', 'â', 'ã', 'ä', 'é', 'è', 'ê', 'í', 'ì', 'î', 'ï', 'ó', 'ò', 'ô', 'õ', 'ö', 'ú', 'ù', 'û', 'ü', 'ç', 'Á', 'À', 'Â', 'Ã', 'Ä', 'É', 'È', 'Ê', 'Í', 'Ì', 'Î', 'Ï', 'Ó', 'Ò', 'Ô', 'Õ', 'Ö', 'Ú', 'Ù', 'Û', 'Ü', 'Ç'];
+            $to   = ['a', 'a', 'a', 'a', 'a', 'e', 'e', 'e', 'i', 'i', 'i', 'i', 'o', 'o', 'o', 'o', 'o', 'u', 'u', 'u', 'u', 'c', 'A', 'A', 'A', 'A', 'A', 'E', 'E', 'E', 'I', 'I', 'I', 'I', 'O', 'O', 'O', 'O', 'O', 'U', 'U', 'U', 'U', 'C'];
+            $s = str_replace($from, $to, $s);
+        }
+        return mb_strtolower($s, 'UTF-8');
+    }
+
+    /** Compara dois status de forma tolerante (case/acentos/espaços) */
+    private function statusEquals(?string $a, ?string $b): bool
+    {
+        if ($a === null || $b === null) return false;
+        return $this->normalizeStatus($a) === $this->normalizeStatus($b);
+    }
+
+    /** Lê o id do revisor aceitando reviewer_user_id ou reviewer_id */
+    private function reviewerIdFrom(array $row): int
+    {
+        return (int)($row['reviewer_user_id'] ?? $row['reviewer_id'] ?? 0);
+    }
+
     /** Atualiza status da operação e registra no histórico. */
     private function setStatus(int $opId, string $status, string $note = ''): void
     {
@@ -101,14 +174,8 @@ final class MeasurementController extends Controller
         $publicPath = '/uploads/ops/' . $opId . '/' . $new;
         $fileId = (new MeasurementFileRepository())->create($opId, $name, $publicPath, null);
 
-        // status -> pending (mantido por enquanto; usaremos setStatus nas próximas etapas)
-        /*$pdo = \Core\Database::pdo();
-        $pdo->prepare('UPDATE operations SET status = "pending" WHERE id = :id')->execute([':id' => $opId]);
-        (new OperationHistoryRepository())->log($opId, 'status_changed', 'Arquivo de medição adicionado: operação marcada como pending.');*/
-
         // Status inicial: Engenharia (nova medição adicionada)
         $this->setStatus($opId, self::ST_ENGENHARIA, 'Arquivo de medição adicionado.');
-
 
         // criar etapa 1 (revisor = responsável), se houver
         $responsibleId = (int)($op['responsible_user_id'] ?? 0);
@@ -196,6 +263,58 @@ final class MeasurementController extends Controller
             }
         }
 
+        // ==== PERMISSÃO DE QUEM PODE ANALISAR ====
+        // Em ambiente sem auth (ou sem DEV_USER_ID), não bloqueamos.
+        // Se houver user identificado, aplicamos o gate completo.
+        $opId   = (int)$file['operation_id'];
+        $opRepo = new OperationRepository();
+        $op     = $opRepo->find($opId);
+
+        $uid        = $this->currentUserId();
+        $requiredSt = $this->requiredStatusForStage($stage);
+
+        if ($uid) {
+            // 1) status da operação precisa bater com a etapa (comparação tolerante)
+            if ($requiredSt && !$this->statusEquals((string)($op['status'] ?? ''), $requiredSt)) {
+                http_response_code(403);
+                echo 'Esta etapa não está disponível no status atual da operação.';
+                return;
+            }
+
+            /*// 2) só o revisor designado pode analisar (aceita reviewer_user_id ou reviewer_id)
+            $expectedReviewerId = $this->reviewerIdFrom((array)$mr);
+            if ($uid !== $expectedReviewerId) {
+                http_response_code(403);
+                echo 'Você não é o revisor desta etapa.';
+                return;
+            }*/
+            $expectedReviewerId = $this->reviewerIdFrom((array)$mr);
+            if ($uid !== $expectedReviewerId) {
+                // Se estiver em modo debug, ajuda a identificar a causa
+                if (strtolower((string)($_ENV['APP_DEBUG'] ?? 'false')) === 'true') {
+                    error_log(sprintf(
+                        '[reviewForm] Bloqueado: uid=%s, expected=%s, stage=%d, file=%d',
+                        var_export($uid, true),
+                        var_export($expectedReviewerId, true),
+                        (int)$stage,
+                        (int)$fileId
+                    ));
+                    echo 'Você não é o revisor desta etapa. (debug uid=' . (int)$uid . ' expected=' . (int)$expectedReviewerId . ')';
+                } else {
+                    echo 'Você não é o revisor desta etapa.';
+                }
+                http_response_code(403);
+                return;
+            }
+
+            // 3) etapa precisa estar pendente
+            if (isset($mr['status']) && $mr['status'] !== 'pending') {
+                http_response_code(403);
+                echo 'Esta etapa já foi analisada. Aguarde as próximas validações.';
+                return;
+            }
+        }
+
         // revisões anteriores
         $prev = $mrRepo->listByFile($fileId);
 
@@ -260,6 +379,54 @@ final class MeasurementController extends Controller
             return;
         }
 
+        // ==== MESMO GATE DE PERMISSÃO NO SUBMIT ====
+        $uid        = $this->currentUserId();
+        $opIdCheck  = (int)$pdo->query('SELECT operation_id FROM measurement_files WHERE id=' . (int)$fileId)->fetchColumn();
+        $opCheck    = (new OperationRepository())->find($opIdCheck);
+        $requiredSt = $this->requiredStatusForStage($stage);
+
+        if ($uid) {
+            // status precisa corresponder (tolerante a acentos/caixa/espaços)
+            if ($requiredSt && !$this->statusEquals((string)($opCheck['status'] ?? ''), $requiredSt)) {
+                http_response_code(403);
+                echo 'Esta etapa não está disponível no status atual da operação.';
+                return;
+            }
+
+            // somente o revisor designado
+            /*$expectedReviewerId = $this->reviewerIdFrom((array)$stageRow);
+            if ($uid !== $expectedReviewerId) {
+                http_response_code(403);
+                echo 'Você não é o revisor desta etapa.';
+                return;
+            }*/
+
+            $expectedReviewerId = $this->reviewerIdFrom((array)$stageRow);
+            if ($uid !== $expectedReviewerId) {
+                if (strtolower((string)($_ENV['APP_DEBUG'] ?? 'false')) === 'true') {
+                    error_log(sprintf(
+                        '[reviewSubmit] Bloqueado: uid=%s, expected=%s, stage=%d, file=%d',
+                        var_export($uid, true),
+                        var_export($expectedReviewerId, true),
+                        (int)$stage,
+                        (int)$fileId
+                    ));
+                    echo 'Você não é o revisor desta etapa. (debug uid=' . (int)$uid . ' expected=' . (int)$expectedReviewerId . ')';
+                } else {
+                    echo 'Você não é o revisor desta etapa.';
+                }
+                http_response_code(403);
+                return;
+            }
+
+            // precisa estar pendente
+            if (isset($stageRow['status']) && $stageRow['status'] !== 'pending') {
+                http_response_code(403);
+                echo 'Esta etapa já foi analisada. Aguarde as próximas validações.';
+                return;
+            }
+        }
+
         $mrRepo->decide($fileId, $stage, $decision, $notes);
 
         // descobre a operação
@@ -291,8 +458,6 @@ final class MeasurementController extends Controller
                     $note      = "Medição reprovada na 4ª validação. Retorno para Jurídico.";
                     break;
                 default:
-                    // Se houver uma 5ª etapa “Financeiro” distinta, crie uma constante e troque aqui.
-                    // No fluxo atual, usamos Pagamento como equivalente.
                     $newStatus = self::ST_PAGAMENTO;
                     $note      = "Medição reprovada na {$stage}ª validação. Retorno para Financeiro/Pagamento.";
                     break;
@@ -302,33 +467,15 @@ final class MeasurementController extends Controller
             $this->setStatus($opId, $newStatus, $note);
             $ohRepo->log($opId, 'measurement', $note . ' Observações: ' . $notes);
 
-            // Destinatários de reprovação (múltiplos via tabela auxiliar; fallback na coluna antiga)
-            $recipients = [];
-            if (class_exists(\App\Repositories\OperationNotifyRepository::class)) {
-                $rnRepo     = new OperationNotifyRepository();
-                $recipients = $rnRepo->listRecipients($opId);
-            }
-            if (!$recipients) {
-                $rejId = (int)($op['rejection_notify_user_id'] ?? 0);
-                if ($rejId) {
-                    if ($u = $userRepo->findBasic($rejId)) {
-                        $recipients[] = $u;
-                    }
-                }
-            }
-
-            // Notifica todos
-            if ($recipients) {
-                $subject = $this->mailSubject($op, 'Medição reprovada');
-                foreach ($recipients as $u) {
-                    $html = '<p>A medição da operação '
-                        . '<strong>#' . $opId . ($op['code'] ? ' (' . $this->esc($op['code']) . ')' : '') . '</strong> '
-                        . '(' . $this->esc((string)$op['title']) . ') foi <strong>reprovada</strong> na '
-                        . $stage . 'ª validação.</p>'
-                        . '<p><strong>Status atual:</strong> ' . $this->esc($newStatus) . '</p>'
-                        . '<p><strong>Observações:</strong><br>' . nl2br($this->esc($notes)) . '</p>';
-                    $this->smtpSend($u['email'], $u['name'] ?? null, $subject, $html, $opId);
-                }
+            // Reabrir a etapa anterior quando a reprovação ocorrer em etapa > 1
+            if ($stage > 1) {
+                $prevStage = $stage - 1;
+                $up = $pdo->prepare(
+                    'UPDATE measurement_reviews
+                        SET status = "pending", reviewed_at = NULL
+                      WHERE file_id = :f AND stage = :s'
+                );
+                $up->execute([':f' => $fileId, ':s' => $prevStage]);
             }
 
             header('Location: /operations/' . $opId);
@@ -419,7 +566,7 @@ final class MeasurementController extends Controller
                 $this->setStatus($opId, self::ST_FINALIZAR, 'Pagamentos verificados; pronto para finalizar.');
                 $ohRepo->log($opId, 'payment_checked', '4ª etapa aprovada: pagamentos registrados/verificados. Observações: ' . $notes);
             }
-            // Se "rejected", o bloco de recusa acima já cuidou (status rejected + e-mail)
+            // Se "rejected", o bloco de recusa acima já cuidou (status + reabertura da etapa anterior)
         }
 
         header('Location: /operations/' . $opId);
@@ -673,7 +820,6 @@ final class MeasurementController extends Controller
         header('Location: /operations/' . $opId);
         exit;
     }
-
 
     /** Helper: escapa rapidamente (atalho) */
     private function esc(string $v): string

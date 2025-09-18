@@ -17,6 +17,46 @@ final class OperationController extends Controller
         private readonly OperationHistoryRepository $hist = new OperationHistoryRepository()
     ) {}
 
+    /** Usuário atual (usa DEV_USER_ID como fallback em dev) */
+    /*private function currentUserId(): ?int
+    {
+        if (isset($_SESSION['user_id'])) {
+            return (int)$_SESSION['user_id'];
+        }
+        $dev = (int)($_ENV['DEV_USER_ID'] ?? 0);
+        return $dev > 0 ? $dev : null;
+    }*/
+
+    /** Usuário atual (usa DEV_USER_ID apenas em dev) */
+    private function currentUserId(): ?int
+    {
+        if (isset($_SESSION['user_id'])) {
+            return (int) $_SESSION['user_id'];
+        }
+
+        $appDebug = strtolower((string)($_ENV['APP_DEBUG'] ?? 'false')) === 'true';
+        $appEnv   = strtolower((string)($_ENV['APP_ENV']   ?? '')) === 'local';
+
+        if ($appDebug || $appEnv) {
+            $dev = (int) ($_ENV['DEV_USER_ID'] ?? 0);
+            return $dev > 0 ? $dev : null;
+        }
+
+        return null;
+    }
+
+    /** Status exigido por etapa */
+    private function requiredStatusForStage(int $stage): ?string
+    {
+        return match ($stage) {
+            1 => 'Engenharia',
+            2 => 'Gestão',
+            3 => 'Jurídico',
+            4 => 'Pagamento',
+            default => null,
+        };
+    }
+
     public function index(): void
     {
         $filters = [
@@ -58,10 +98,48 @@ final class OperationController extends Controller
         $files  = $mfRepo->listByOperation($id);
         $pending = $mfRepo->hasPendingAnalysis($id);
 
-        // Próxima etapa pendente
+        // Próxima etapa pendente + se o usuário pode analisar
         $revRepo = new MeasurementReviewRepository();
+        $uid     = $this->currentUserId();
+        $baseUrl = rtrim($_ENV['APP_URL'] ?? '', '');
+
         foreach ($files as &$f) {
-            $f['next_stage'] = $revRepo->nextPendingStage((int)$f['id']) ?? 1;
+            $fileId = (int)$f['id'];
+            $next   = $revRepo->nextPendingStage($fileId) ?? 1;
+            $f['next_stage'] = $next;
+
+            // default
+            $f['can_review'] = false;
+
+            // status exigido para a etapa
+            $required = $this->requiredStatusForStage((int)$next);
+            if (!$required || (($op['status'] ?? null) !== $required)) {
+                continue;
+            }
+
+            /*
+            // obter a linha da etapa
+            $mr = $revRepo->getStage($fileId, (int)$next);
+            if (!$mr) {
+                continue;
+            }
+
+            // só o revisor designado, e a etapa precisa estar 'pending'
+            if ($uid && (int)($mr['reviewer_user_id'] ?? 0) === $uid && ($mr['status'] ?? 'pending') === 'pending') {
+                $f['can_review'] = true;
+                $f['review_url'] = ($baseUrl !== '' ? $baseUrl : '') . '/measurements/' . $fileId . '/review/' . (int)$next;
+            }*/
+
+            $mr = $revRepo->getStage($fileId, (int)$next);
+            if (!$mr) {
+                continue;
+            }
+            $revId = (int)($mr['reviewer_user_id'] ?? $mr['reviewer_id'] ?? 0);
+
+            if ($uid && $revId === $uid && ($mr['status'] ?? 'pending') === 'pending') {
+                $f['can_review'] = true;
+                $f['review_url'] = ($baseUrl !== '' ? $baseUrl : '') . '/measurements/' . $fileId . '/review/' . (int)$next;
+            }
         }
         unset($f);
 

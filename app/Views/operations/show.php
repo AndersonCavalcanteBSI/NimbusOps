@@ -120,29 +120,22 @@ $fmt = function (?string $d): string {
                                         <td><?= $fmt($f['uploaded_at'] ?? null) ?></td>
                                         <td>
                                             <?php if ($isDone): ?>
-                                                <span class="badge text-bg-success">Concluído</span>
+                                                <span class="badge text-bg-success"><?= htmlspecialchars($fileStatus) ?></span>
                                             <?php else: ?>
-                                                <span class="badge text-bg-warning">Pendente</span>
+                                                <span class="badge text-bg-warning"><?= htmlspecialchars($fileStatus) ?></span>
                                             <?php endif; ?>
-                                        </td>
-                                        <td class="text-end d-flex gap-2 justify-content-end">
-                                            <a class="btn btn-sm btn-outline-secondary" href="<?= htmlspecialchars($f['history_url']) ?>">
-                                                Ver histórico
-                                            </a>
-
-                                            <?php // *** NOVO: mostrar "Analisar" sempre que NÃO concluído ***
+                                            <?php
                                             ?>
                                             <?php if (!$isDone): ?>
                                                 <a class="btn btn-sm btn-primary" href="<?= htmlspecialchars($analyzeUrl) ?>">
                                                     Analisar<?= isset($f['next_stage']) ? ' (' . (int)$f['next_stage'] . 'ª)' : '' ?>
                                                 </a>
                                             <?php endif; ?>
-
-                                            <?php if (!empty($fileStatus)): ?>
-                                                <span class="badge bg-<?= $isDone ? 'success' : 'secondary' ?>">
-                                                    <?= htmlspecialchars($fileStatus) ?>
-                                                </span>
-                                            <?php endif; ?>
+                                        </td>
+                                        <td class="text-end d-flex gap-2 justify-content-end">
+                                            <a class="btn btn-sm btn-outline-secondary" href="<?= htmlspecialchars($f['history_url']) ?>">
+                                                Ver histórico
+                                            </a>
                                         </td>
                                     </tr>
 

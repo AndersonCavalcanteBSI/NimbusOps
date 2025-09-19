@@ -1,4 +1,8 @@
-<?php include __DIR__ . '/../layout/header.php'; ?>
+<?php
+$withNav = true;
+$pageTitle = 'Histórico Medição - ' . $file['op_title'];
+include __DIR__ . '/../layout/header.php';
+?>
 
 <a href="/operations/<?= isset($operationId) ? (int)$operationId : 0 ?>" class="btn btn-link">← Voltar</a>
 <h2 class="mb-3">Histórico da Medição</h2>

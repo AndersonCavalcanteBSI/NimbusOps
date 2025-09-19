@@ -1,4 +1,8 @@
-<?php include __DIR__ . '/../layout/header.php'; ?>
+<?php
+$withNav = true;
+$pageTitle = 'Home';
+include __DIR__ . '/../layout/header.php';
+?>
 <div class="p-5 mb-4 bg-light rounded-3">
     <div class="container-fluid py-5">
         <h1 class="display-5 fw-bold">Bem-vindo ao NimbusOps</h1>

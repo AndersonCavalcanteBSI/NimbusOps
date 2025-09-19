@@ -1,4 +1,8 @@
-<?php include __DIR__ . '/../layout/header.php'; ?>
+<?php
+$withNav = true;
+$pageTitle = 'Operações';
+include __DIR__ . '/../layout/header.php';
+?>
 
 <h2 class="mb-3">Operações</h2>
 

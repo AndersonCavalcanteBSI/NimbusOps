@@ -1,4 +1,8 @@
-<?php include __DIR__ . '/../layout/header.php'; ?>
+<?php
+$withNav = true;
+$pageTitle = 'Registrar pagamentos - ' . $file['op_title'];
+include __DIR__ . '/../layout/header.php';
+?>
 
 <a href="/operations/<?= (int)$file['op_id'] ?>" class="btn btn-link">← Voltar para a operação</a>
 <h2 class="mb-3">Registrar Pagamentos — Operação #<?= (int)$file['op_id'] ?> (<?= htmlspecialchars($file['op_title']) ?>)</h2>

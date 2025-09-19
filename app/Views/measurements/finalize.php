@@ -1,7 +1,11 @@
-<?php include __DIR__ . '/../layout/header.php'; ?>
+<?php
+$withNav = true;
+$pageTitle = 'Finalização da Medição - Operação ' . $file['op_title'];
+include __DIR__ . '/../layout/header.php';
+?>
 
 <a href="/operations/<?= (int)$operationId ?>" class="btn btn-link">← Voltar</a>
-<h2 class="mb-3">Finalizar Pagamento — Operação #<?= (int)$operationId ?></h2>
+<h2 class="mb-3">Finalizar Pagamento — Operação: <?= $file['op_title'] ?></h2>
 
 <div class="card mb-3">
     <div class="card-body">

@@ -1,4 +1,8 @@
-<?php include __DIR__ . '/../layout/header.php'; ?>
+<?php
+$withNav = true;
+$pageTitle = 'Operação - ' . ($op['title'] ?? 'Detalhes');
+include __DIR__ . '/../layout/header.php';
+?>
 
 <a href="/operations" class="btn btn-link">← Voltar</a>
 <h2 class="mb-3">Operação #<?= (int)$op['id'] ?> — <?= htmlspecialchars($op['title']) ?></h2>

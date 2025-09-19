@@ -1,4 +1,8 @@
-<?php include __DIR__ . '/../layout/header.php'; ?>
+<?php
+$withNav = true;
+$pageTitle = 'Criar Nova Operação';
+include __DIR__ . '/../layout/header.php';
+?>
 <a href="/operations" class="btn btn-link">← Voltar</a>
 <h2 class="mb-3">Nova Operação</h2>
 

@@ -1,4 +1,8 @@
-<?php include __DIR__ . '/../layout/header.php'; ?>
+<?php
+$withNav = true;
+$pageTitle = 'Upload de Medição';
+include __DIR__ . '/../layout/header.php';
+?>
 
 <h2 class="mb-3">Upload de Medição</h2>
 <?php if (isset($_GET['ok'])): ?>

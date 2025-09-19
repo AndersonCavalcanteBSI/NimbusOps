@@ -1,5 +1,8 @@
-<?php include __DIR__ . '/../layout/header.php'; ?>
-
+<?php
+$withNav = true;
+$pageTitle = !empty($user) ? 'Editar usuário - ' . $user['name'] : 'Novo usuário';
+include __DIR__ . '/../layout/header.php';
+?>
 <?php
 $isEdit = !empty($user);
 $msConnected = $msConnected ?? false;

@@ -7,60 +7,17 @@ $msLinked  = (int)($_SESSION['user']['ms_linked'] ?? 0) === 1;
 <html lang="pt-br">
 
 <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>NimbusOps</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title><?= isset($pageTitle) ? htmlspecialchars($pageTitle) . ' — ' : '' ?>NimbusOps</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-sRIl4kxILFvY47J16cr9ZwB07vP4J8+LH7qKQnuqkuIAvNWLzeN8tE5YBujZqJLB" crossorigin="anonymous">
+    <link href="/assets/app.css" rel="stylesheet">
 </head>
 
 <body>
-    <nav class="navbar navbar-expand-lg bg-body-tertiary">
-        <div class="container-fluid">
-            <a class="navbar-brand" href="/">NimbusOps</a>
-            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#nav" aria-controls="nav" aria-expanded="false" aria-label="Toggle navigation">
-                <span class="navbar-toggler-icon"></span>
-            </button>
-            <div class="collapse navbar-collapse" id="nav">
-                <ul class="navbar-nav me-auto mb-2 mb-lg-0">
-                    <li class="nav-item"><a class="nav-link" href="/operations">Operações</a></li>
-                    <li class="nav-item"><a class="nav-link" href="/measurements/upload">Medições</a></li>
-                    <?php if ($role === 'admin'): ?>
-                        <li class="nav-item"><a class="nav-link" href="/operations/create">Nova Operação</a></li>
-                        <li class="nav-item"><a class="nav-link" href="/users">Usuários</a></li>
-                    <?php endif; ?>
-                </ul>
-
-                <ul class="navbar-nav ms-auto align-items-center gap-2">
-                    <?php if ($loggedIn): ?>
-                        <!-- Botão/estado do vínculo Microsoft -->
-                        <?php if ($msLinked): ?>
-                            <li class="nav-item">
-                                <span class="badge text-bg-success">Microsoft conectado</span>
-                            </li>
-                            <li class="nav-item">
-                                <form method="post" action="/auth/unlink" class="m-0 p-0">
-                                    <button class="btn btn-sm btn-outline-danger">Desvincular</button>
-                                </form>
-                            </li>
-                        <?php else: ?>
-                            <li class="nav-item">
-                                <a class="btn btn-sm btn-outline-primary" href="/auth/microsoft">Conectar Microsoft</a>
-                            </li>
-                        <?php endif; ?>
-
-                        <li class="nav-item">
-                            <span class="nav-link disabled">
-                                <?= htmlspecialchars($_SESSION['user']['name'] ?? $_SESSION['user']['email'] ?? 'Usuário') ?>
-                            </span>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link" href="/logout">Sair</a>
-                        </li>
-                    <?php else: ?>
-                        <li class="nav-item"><a class="nav-link" href="/auth/login">Entrar</a></li>
-                    <?php endif; ?>
-                </ul>
-            </div>
-        </div>
-    </nav>
-    <main class="container py-4">
+    <?php
+    if (!empty($withNav)) {
+        include __DIR__ . '/nav.php';
+    }
+    ?>
+    <main class="container my-3">

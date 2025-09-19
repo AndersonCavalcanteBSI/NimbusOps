@@ -1,4 +1,7 @@
-<?php include __DIR__ . '/../layout/header.php'; ?>
+<?php
+$pageTitle = 'Login';
+include __DIR__ . '/../layout/header.php';
+?>
 
 <h2 class="mb-3">Entrar</h2>
 

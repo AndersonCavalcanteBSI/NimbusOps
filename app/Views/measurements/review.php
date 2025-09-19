@@ -1,4 +1,8 @@
-<?php include __DIR__ . '/../layout/header.php'; ?>
+<?php
+$withNav = true;
+$pageTitle = 'Análise da Medição - ' . $stage . 'ª Validação';
+include __DIR__ . '/../layout/header.php';
+?>
 
 <?php $isReadOnly = !empty($readOnly); ?>
 

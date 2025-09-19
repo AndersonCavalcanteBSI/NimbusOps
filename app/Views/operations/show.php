@@ -62,7 +62,6 @@ $fmt = function (?string $d): string {
                     <ul class="list-group list-group-flush">
                         <?php foreach ($history as $h): ?>
                             <li class="list-group-item">
-                                <!--<div class="small text-muted"><?= htmlspecialchars($h['created_at']) ?></div>-->
                                 <div class="small text-muted">
                                     <?= htmlspecialchars($h['created_at']) ?><?= !empty($h['user_name']) ? ' • por ' . htmlspecialchars($h['user_name']) : '' ?>
                                 </div>
@@ -105,6 +104,13 @@ $fmt = function (?string $d): string {
                                     $histList   = $filesHistory[$f['id']] ?? [];
                                     $fileStatus = (string)($f['file_status'] ?? '');
                                     $isDone     = (mb_strtolower($fileStatus, 'UTF-8') === mb_strtolower('Concluído', 'UTF-8'));
+
+                                    // URL para analisar: usa a que veio do controller quando existir;
+                                    // caso não venha, cai no padrão /measurements/{id}/review/{next_stage}
+                                    $nextStage  = (int)($f['next_stage'] ?? 1);
+                                    $analyzeUrl = !empty($f['review_url'])
+                                        ? (string)$f['review_url']
+                                        : '/measurements/' . (int)$f['id'] . '/review/' . $nextStage;
                                     ?>
                                     <tr>
                                         <td>
@@ -123,11 +129,40 @@ $fmt = function (?string $d): string {
                                             <a class="btn btn-sm btn-outline-secondary" href="<?= htmlspecialchars($f['history_url']) ?>">
                                                 Ver histórico
                                             </a>
-                                            <?php if (!empty($f['can_review']) && !$isDone): ?>
-                                                <a class="btn btn-sm btn-primary"
-                                                    href="/measurements/<?= (int)$f['id'] ?>/review/<?= (int)($f['next_stage'] ?? 1) ?>">
+
+                                            <?php // *** NOVO: mostrar "Analisar" sempre que NÃO concluído ***
+                                            ?>
+                                            <?php if (!$isDone): ?>
+                                                <a class="btn btn-sm btn-primary" href="<?= htmlspecialchars($analyzeUrl) ?>">
                                                     Analisar<?= isset($f['next_stage']) ? ' (' . (int)$f['next_stage'] . 'ª)' : '' ?>
                                                 </a>
+                                            <?php endif; ?>
+
+                                            <?php if (!empty($fileStatus)): ?>
+                                                <span class="badge bg-<?= $isDone ? 'success' : 'secondary' ?>">
+                                                    <?= htmlspecialchars($fileStatus) ?>
+                                                </span>
+                                            <?php endif; ?>
+                                        </td>
+                                    </tr>
+
+                                    <tr class="collapse" id="fileHist<?= (int)$f['id'] ?>">
+                                        <td colspan="4">
+                                            <?php if (!$histList): ?>
+                                                <div class="text-muted">Sem histórico para este arquivo.</div>
+                                            <?php else: ?>
+                                                <ul class="list-group list-group-flush">
+                                                    <?php foreach ($histList as $fh): ?>
+                                                        <li class="list-group-item">
+                                                            <div class="small text-muted"><?= htmlspecialchars($fh['created_at']) ?></div>
+                                                            <?php if (!empty($fh['user_name'])): ?>
+                                                                • por <?= htmlspecialchars($fh['user_name']) ?>
+                                                            <?php endif; ?>
+                                                            <strong><?= htmlspecialchars($fh['action']) ?></strong>
+                                                            <div><?= nl2br(htmlspecialchars($fh['notes'])) ?></div>
+                                                        </li>
+                                                    <?php endforeach; ?>
+                                                </ul>
                                             <?php endif; ?>
                                         </td>
                                     </tr>

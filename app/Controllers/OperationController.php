@@ -146,14 +146,68 @@ final class OperationController extends Controller
             $filesHistory = $mfhRepo->listByFiles($fileIds);
         }
 
+        // Última medição CONCLUÍDA (prioriza closed_at; fallback uploaded_at)
+        $pdo = \Core\Database::pdo();
+        $st  = $pdo->prepare(
+            'SELECT MAX(COALESCE(closed_at, uploaded_at)) AS last_dt
+       FROM measurement_files
+      WHERE operation_id = :op AND status = :st'
+        );
+        $st->execute([':op' => $id, ':st' => 'Concluído']);
+        $lastConcludedAt = $st->fetchColumn() ?: null;
+
+        // Fallback extra: caso o repo não esteja trazendo closed_at/status direito
+        if (!$lastConcludedAt && !empty($files)) {
+            foreach ($files as $f) {
+                $isDone = mb_strtolower((string)($f['status'] ?? $f['file_status'] ?? ''), 'UTF-8') === mb_strtolower('Concluído', 'UTF-8');
+                if ($isDone) {
+                    $dt = $f['closed_at'] ?? $f['uploaded_at'] ?? null;
+                    if ($dt && (!$lastConcludedAt || $dt > $lastConcludedAt)) {
+                        $lastConcludedAt = $dt;
+                    }
+                }
+            }
+        }
+
+        // === Última medição CONCLUÍDA (id + total pago) ===
+        $pdo = \Core\Database::pdo();
+
+        // pega o arquivo mais recente concluído (considera closed_at; fallback uploaded_at)
+        $st = $pdo->prepare(
+            'SELECT id, COALESCE(closed_at, uploaded_at) AS dt
+       FROM measurement_files
+      WHERE operation_id = :op AND status = :st
+   ORDER BY dt DESC
+      LIMIT 1'
+        );
+        $st->execute([':op' => $id, ':st' => 'Concluído']);
+        $lastConcludedFile = $st->fetch();
+
+        $lastMeasurementTotal = null;
+        if ($lastConcludedFile && !empty($lastConcludedFile['id'])) {
+            $fid = (int)$lastConcludedFile['id'];
+
+            // soma os pagamentos dessa medição
+            $sum = $pdo->prepare(
+                'SELECT SUM(amount) FROM measurement_payments WHERE measurement_file_id = :fid'
+            );
+            $sum->execute([':fid' => $fid]);
+            $lastMeasurementTotal = $sum->fetchColumn();
+
+            // normaliza para float (ou null se não houver pagamentos)
+            $lastMeasurementTotal = $lastMeasurementTotal !== null ? (float)$lastMeasurementTotal : null;
+        }
+
         $displayStatus = $pending ? 'Em aberto' : ucfirst($op['status']);
 
         $this->view('operations/show', [
-            'op'            => $op,
-            'history'       => $history,
-            'files'         => $files,
-            'filesHistory'  => $filesHistory,
-            'displayStatus' => $displayStatus,
+            'op'                 => $op,
+            'history'            => $history,
+            'files'              => $files,
+            'filesHistory'       => $filesHistory,
+            'displayStatus'      => $displayStatus,
+            'lastConcludedAt'    => $lastConcludedAt,
+            'lastMeasurementTotal' => $lastMeasurementTotal,
         ]);
     }
 
@@ -161,9 +215,11 @@ final class OperationController extends Controller
     public function create(): void
     {
         $users = (new UserRepository())->allActive();
+        $nextCode = $this->repo->generateNextCode();
         $this->view('operations/create', [
             'users' => $users,
             'op'    => null,
+            'nextCode' => $nextCode,
         ]);
     }
 
@@ -171,7 +227,7 @@ final class OperationController extends Controller
     {
         // Campos principais
         $title  = trim((string)($_POST['title'] ?? ''));
-        $code   = trim((string)($_POST['code']  ?? ''));
+        //$code   = trim((string)($_POST['code']  ?? ''));
         $issuer = trim((string)($_POST['issuer'] ?? ''));
         $due    = trim((string)($_POST['due_date'] ?? ''));
         $amount = trim((string)($_POST['amount'] ?? ''));
@@ -181,6 +237,9 @@ final class OperationController extends Controller
             echo 'Informe o título.';
             return;
         }
+
+        // Código é sempre gerado no servidor para evitar corrida
+        $code = $this->repo->generateNextCode();
 
         // Normaliza due_date (aceita dd/mm/aaaa)
         $dueDb = null;
@@ -218,7 +277,8 @@ final class OperationController extends Controller
         // IMPORTANTE: não enviamos 'status' aqui; deixamos o DEFAULT do banco
         $data = [
             'title'  => $title,
-            'code'   => ($code !== '' ? $code : null),
+            //'code'   => ($code !== '' ? $code : null),
+            'code'   => $code,
             'issuer' => $issuer,
             'due_date' => $dueDb,
             'amount'   => $amountDb,

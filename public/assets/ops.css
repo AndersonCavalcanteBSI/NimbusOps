@@ -1,0 +1,448 @@
+:root{
+  --brand-bg: #0b1d33;     /* navy principal */
+  --brand-bg-2:#0e2d52;    /* navy mais claro para botões */
+  --brand-gold:#c8a86e;    /* dourado (detalhes) */
+  --ink:#0b1220;           /* texto escuro */
+  --muted:#6b7280;         /* cinza texto secundário */
+  --border:#e6e8ee;
+  --row-hover:#f7f9fc;
+}
+
+/* HERO */
+.ops-hero{
+  background: linear-gradient(180deg, var(--brand-bg) 0%, #0d233d 100%);
+  color:#fff;
+  padding: 28px 0 20px;
+  border-bottom: 1px solid rgba(255,255,255,.08);
+}
+.ops-hero .container{max-width: 1140px;}
+.ops-hero__title{
+  font-size: 1.6rem;
+  font-weight: 700;
+  letter-spacing:.3px;
+  margin:0;
+}
+.ops-hero__subtitle{
+  margin: 6px 0 0;
+  opacity:.85;
+}
+
+/* FILTROS */
+.ops-filter{ border:0; border-radius: 16px; }
+.ops-label{ font-weight:600; color: var(--ink); }
+.ops-input{
+  border-radius: 10px;
+  border: 1px solid var(--border);
+}
+.ops-input:focus{
+  border-color: var(--brand-bg-2);
+  box-shadow: 0 0 0 .15rem rgba(14,45,82,.15);
+}
+.btn-brand{
+  background: var(--brand-bg-2);
+  color: #fff;
+  border: 0;
+  border-radius: 999px;
+  padding: .6rem 1.1rem;
+  font-weight: 600;
+}
+.btn-brand:hover{ background: #0b2748; color:#fff; }
+.btn-outline-brand{
+  border-radius: 999px;
+  padding: .6rem 1.1rem;
+  font-weight: 600;
+  color: var(--brand-bg-2);
+  border: 1px solid var(--brand-bg-2);
+  background: #fff;
+}
+.btn-outline-brand:hover{
+  background: var(--brand-bg-2);
+  color:#fff;
+}
+
+/* TABELA */
+.card{ border: 1px solid var(--border); border-radius:16px; }
+.ops-table{ margin:0; }
+.ops-thead th{
+  background:#f9fbff;
+  color:#334155;
+  font-weight:700;
+  border-bottom:1px solid var(--border);
+}
+.ops-th-link{
+  text-decoration:none;
+  color:inherit;
+}
+.ops-th-link:hover{ color: var(--brand-bg-2); }
+.ops-table tbody tr:hover{ background: var(--row-hover); }
+
+/* BADGES de status */
+.ops-badge{
+  display:inline-block;
+  font-size:.78rem;
+  padding:.35rem .6rem;
+  border-radius:999px;
+  font-weight:700;
+  letter-spacing:.2px;
+  border: 1px solid transparent;
+}
+.ops-badge--success{ color:#0a7a55; background:#e6f6ef; border-color:#ccecdf; }
+.ops-badge--neutral{ color:#475569; background:#eef2f7; border-color:#e3e8f0; }
+.ops-badge--info   { color:#0a5d8f; background:#e5f1fb; border-color:#d8e9f8; }
+.ops-badge--warning{ color:#9a6b00; background:#fff6e6; border-color:#ffe9bf; }
+.ops-badge--danger { color:#8b1c1c; background:#fdeaea; border-color:#f8d4d4; }
+
+/* Paginação */
+.ops-pagination .page-link{
+  color: var(--brand-bg-2);
+  border: 1px solid var(--border);
+}
+.ops-pagination .page-item.active .page-link{
+  background: var(--brand-bg-2);
+  border-color: var(--brand-bg-2);
+}
+
+/* Empty state */
+.empty-state{ text-align:center; }
+.empty-state__title{ font-weight:700; color:var(--ink); }
+.empty-state__desc{ color:var(--muted); }
+
+/* Container largura padrão */
+.container{ max-width:1140px; }
+
+/* ==== BADGES DE ESTÁGIO (pipeline) ==== */
+.stage-badge{
+  display:inline-block;
+  font-size:.78rem;
+  padding:.35rem .6rem;
+  border-radius:999px;
+  font-weight:700;
+  letter-spacing:.2px;
+  border:1px solid transparent;
+}
+
+/* Cores por estágio */
+.stage--engenharia { color:#0b5cab; background:#e6f0fb; border-color:#d9e7fb; }  /* azul engenheiro */
+.stage--gestao     { color:#0a775c; background:#e6f6f3; border-color:#ccebe5; }  /* teal gestão */
+.stage--juridico   { color:#5a3dbb; background:#efeaff; border-color:#e3d9ff; }  /* roxo jurídico */
+.stage--pagamento  { color:#9a6b00; background:#fff6e6; border-color:#ffe5b5; }  /* laranja pagamento */
+.stage--finalizar  { color:#7a1c6b; background:#fdeafb; border-color:#f6d1f0; }  /* magenta finalização */
+.stage--completo   { color:#0a7a55; background:#e6f6ef; border-color:#ccecdf; }  /* verde completo */
+
+/* fallback */
+.stage--default    { color:#475569; background:#eef2f7; border-color:#e3e8f0; }
+
+/* Arredonda as pontas do cabeçalho da tabela de operações */
+.ops-table {
+  border-collapse: separate;   /* permite radius nas células */
+  border-spacing: 0;
+}
+
+.ops-thead th {
+  background: #f2f6ff;         /* sua cor de header */
+  border: 0;                   /* evita serrilhado nas bordas */
+  background-clip: padding-box;
+}
+
+.ops-thead th:first-child {
+  border-top-left-radius: 12px;
+}
+
+.ops-thead th:last-child {
+  border-top-right-radius: 12px;
+}
+
+/* (Opcional) arredondar as pontas de baixo da última linha */
+.ops-table tbody tr:last-child td:first-child {
+  border-bottom-left-radius: 12px;
+}
+
+.ops-table tbody tr:last-child td:last-child {
+  border-bottom-right-radius: 12px;
+}
+
+/* se houver borda do card “vazando”, dá uma suavizada */
+.card .table {
+  margin-bottom: 0;
+}
+
+/* -------------------------
+   HERO – versão clean
+-------------------------- */
+.ops-hero--clean {
+  padding: 20px 0 12px;              /* altura enxuta */
+  background: transparent;           /* sem bloco escuro */
+  border-bottom: 1px solid #e9eef6;  /* separador sutil */
+}
+
+.ops-hero__stack { 
+  display: grid; 
+  gap: 6px; 
+}
+
+.ops-hero__title{
+  margin: 0;
+  font-size: clamp(22px, 2.2vw, 28px);
+  font-weight: 700;
+  letter-spacing: .1px;
+  color: #0b1d33;                     /* azul institucional escuro */
+}
+
+.ops-hero__subtitle{
+  margin: 0;
+  color: #64748b;                     /* cinza elegante */
+  font-size: 14px;
+}
+
+/* micro detalhe opcional: uma régua fina sob o título */
+.ops-hero__title::after{
+  content:"";
+  display:block;
+  width: 48px;
+  height: 3px;
+  margin-top: 10px;
+  border-radius: 999px;
+  background: linear-gradient(90deg,#0b1d33 0%, #22466c 100%);
+  opacity:.15;                        /* bem discreto */
+}
+
+/* ===== Modal de histórico (timeline) ===== */
+.op-hist__header{
+  background: #0b1d33; color:#fff;
+  border-bottom: none;
+}
+.op-hist__icon{ display:inline-flex; color:#cbd5e1 }
+.op-hist .btn-close{ filter: invert(1) opacity(.8); }
+
+.op-hist__timeline{
+  padding: 1rem 1rem 1.5rem 1.5rem;
+}
+.op-hist__item{
+  position: relative;
+  padding: 1rem 1rem 1rem 2.25rem;
+  border-left: 2px solid #e6edf5;
+}
+.op-hist__item:last-child{
+  border-left-color: transparent; /* final suave */
+}
+.op-hist__dot{
+  position:absolute; left:-6px; top:1.2rem;
+  width:12px; height:12px; border-radius:50%;
+  background:#0b1d33; box-shadow:0 0 0 4px rgba(11,29,51,.07);
+}
+.op-hist__content{
+  background:#ffffff; border:1px solid #e9eef5;
+  border-radius:12px; padding: .85rem 1rem;
+  box-shadow: 0 2px 6px rgba(2,12,24,.04);
+}
+.op-hist__meta{
+  font-size:.85rem; color:#64748b;
+}
+.op-hist__notes{
+  margin-top:.35rem; color:#0f172a;
+}
+
+/* badges por tipo de ação (cores do tema) */
+.op-hist__badge{
+  display:inline-block; font-size:.75rem; font-weight:600;
+  padding:.2rem .55rem; border-radius:999px;
+  border:1px solid transparent;
+}
+.op-hist__badge--neutral{ background:#eef2f7; color:#0b1d33; border-color:#e3e9f2; }
+.op-hist__badge--info{ background:#e6f0ff; color:#0b3b78; border-color:#cfe2ff; }
+.op-hist__badge--accent{ background:#f0f6ff; color:#123a63; border-color:#dde8ff; }
+.op-hist__badge--warning{ background:#fff5e6; color:#8a4a00; border-color:#ffe7c2; }
+.op-hist__badge--success{ background:#eaf7f0; color:#165f3e; border-color:#d6f0e1; }
+.op-hist__badge--danger{ background:#fdecec; color:#7c1a1a; border-color:#f9d3d3; }
+
+/* footer */
+.op-hist .modal-footer{
+  border-top: 1px solid #edf2f7;
+}
+
+/* ===== Agrupamento por dia ===== */
+.op-hist__day{ padding: .5rem 1rem 1rem 1rem; }
+.op-hist__dayhead{
+  display:flex; align-items:center; gap:.75rem;
+  padding: .75rem .25rem .25rem .25rem;
+}
+.op-hist__daypill{
+  background:#0b1d33; color:#fff; font-weight:600;
+  font-size:.85rem; padding:.35rem .7rem; border-radius:999px;
+  box-shadow:0 6px 18px rgba(11,29,51,.18);
+}
+.op-hist__dayline{
+  flex:1; height:1px; background:linear-gradient(90deg,#cfd8e3,transparent);
+}
+
+/* timeline já criada anteriormente – apenas garante leve ajuste do padding ao agrupar */
+.op-hist__timeline{ padding: .5rem 1rem 1rem 1.5rem; }
+
+/* ---------- Medições (modal) ---------- */
+.mf-item { padding: .25rem 0; }
+.mf-icon { width:44px; height:44px; background:rgba(13, 110, 253, .06); color:#0e2d52; }
+.mf-file .small { margin-top: 2px; }
+.mf-meta { min-width: 120px; text-align: left; }
+.mf-actions .btn { white-space: nowrap; }
+
+/* Ajustes de listas no modal para visual mais limpo */
+#filesModal .list-group-item { border: 0; border-top: 1px solid #eef1f6; }
+#filesModal .list-group-item:first-child { border-top: 0; }
+#filesModal .modal-header .modal-title { font-weight: 700; }
+#filesModal .empty-state__title { font-weight: 600; font-size: 1.05rem; }
+#filesModal .empty-state__desc { color: #6b7280; }
+
+/* Se quiser um hover sutil na linha */
+#filesModal .list-group-item:hover { background: #fafcff; }
+
+/* Já existentes na página, mas garantimos consistência aqui também */
+.ops-badge { display:inline-flex; align-items:center; padding:.25rem .5rem; border-radius:999px; font-size:.75rem; font-weight:600; }
+.ops-badge--success { background:#e7f7ef; color:#0b7a4b; }
+.ops-badge--warning { background:#fff5e6; color:#b26b00; }
+
+.btn-brand { background:#0e2d52; color:#fff; border:0; }
+.btn-brand:hover { background:#0b2748; color:#fff; }
+.btn-outline-brand { border-color:#0e2d52; color:#0e2d52; }
+.btn-outline-brand:hover { background:#0e2d52; color:#fff; }
+
+/* Moldura arredondada e overflow correto */
+.modal-content--brand {
+  border: 0;
+  border-radius: 14px;
+  overflow: hidden;
+  box-shadow: 0 24px 48px rgba(2, 13, 28, .25);
+}
+
+/* Cabeçalho escuro + título branco com ícone */
+.modal-header--brand {
+  background: #0b1d33;            /* tom BSICapital */
+  color: #fff;
+  border: 0;
+  padding: .9rem 1.1rem;
+}
+
+.modal-header--brand .modal-title {
+  color: #fff;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: .55rem;
+  margin: 0;
+}
+
+.modal-header--brand .mh-icon {
+  display: inline-flex;
+  width: 22px;
+  height: 22px;
+  color: #cdd6e5;                  /* ícone clarinho */
+  opacity: .9;
+}
+
+/* Botão de fechar claro */
+.modal-header--brand .btn-close {
+  filter: invert(1) grayscale(1) brightness(190%);
+  opacity: .75;
+}
+.modal-header--brand .btn-close:hover { opacity: 1; }
+
+/* Opcional: fundo da modal-body mais claro para contraste */
+.modal-content--brand .modal-body {
+  background: #fbfcfe;
+}
+
+/* ----- Cartões e cabeçalhos padronizados ----- */
+.ops-card { border: 0; border-radius: 14px; overflow: hidden; }
+.ops-card__header{
+  background: #0b1d33;
+  color: #fff;
+  display:flex; align-items:center; justify-content:space-between;
+  padding:.85rem 1.1rem; border:0;
+}
+.ops-card__title{
+  font-weight:700; display:flex; align-items:center; gap:.5rem;
+}
+.ops-card__icon{ display:inline-flex; width:20px; height:20px; color:#cdd6e5; }
+.ops-card .card-body{ background:#fbfcfe; }
+
+/* Inputs e prefixos */
+.ops-input{ border-radius:10px; }
+.ops-input:focus{ border-color:#0e2d52; box-shadow:0 0 0 .2rem rgba(14,45,82,.12); }
+.ops-iptprefix{ background:#eef2f6; border-color:#dfe6ee; color:#334155; }
+
+/* Título compacto do hero */
+.ops-hero--compact { padding: 16px 0; }
+.ops-hero--compact .ops-hero__title { font-size: 20px; }
+.ops-hero--compact .ops-hero__subtitle { margin: 0; font-size: 13px; opacity:.9; }
+
+/* Botões padrão (já usados em outras telas) */
+.btn-brand{ background:#0e2d52; color:#fff; border:0; border-radius:10px; padding:.6rem 1rem; font-weight:600; }
+.btn-brand:hover{ background:#0b2748; color:#fff; }
+.btn-outline-brand{ border:1px solid #0e2d52; color:#0e2d52; border-radius:10px; padding:.55rem 1rem; font-weight:600; background:#fff; }
+.btn-outline-brand:hover{ background:#0e2d52; color:#fff; }
+
+/* Hero “plain” (sem faixa azul) */
+.ops-hero--plain{
+  background: #fff;             /* ou transparent; se o body já for branco */
+  border-bottom: 1px solid #e6edf5;
+  box-shadow: none;
+}
+
+/* Ajustes de tipografia para o plain */
+.ops-hero--plain .ops-hero__title{
+  color: #0b1d33;               /* título escuro */
+}
+.ops-hero--plain .ops-hero__subtitle{
+  color: #6b778c;               /* cinza suave */
+}
+
+/* Botão voltar continua com o mesmo padrão */
+.btn-outline-brand{
+  border:1px solid #0e2d52; color:#0e2d52; background:#fff;
+}
+.btn-outline-brand:hover{ background:#0e2d52; color:#fff; }
+
+input[readonly]{
+  background:#f7fafc;
+  color:#0b1d33;
+  font-weight:600;
+}
+
+/* realce nos selects */
+.form-select.js-pick, .form-select.js-multi{
+  border-radius:12px;
+  padding:.6rem .9rem;
+}
+.form-select.js-pick:focus, .form-select.js-multi:focus{
+  border-color:#113a62;
+  box-shadow:0 0 0 .2rem rgba(17,58,98,.12);
+}
+
+/* badge/resumo */
+#assigneesSummary li + li{ margin-top:.25rem; }
+
+/* card da seção de responsáveis/notificações */
+.ops-card{
+  border-radius: 14px;           /* raio consistente */
+  overflow: hidden;              /* corta o header dentro do raio */
+  border: 1px solid #e6edf3;
+}
+
+/* header escuro, herdando o raio */
+.ops-card__header{
+  background: #0f2238;
+  color: #fff;
+  padding: .9rem 1.25rem;
+  border-bottom: none;
+  border-top-left-radius: inherit;
+  border-top-right-radius: inherit;
+}
+
+/* bolinha do ícone mais leve e bem posicionada */
+.ops-card__header .rounded-circle{
+  background: rgba(255,255,255,.10) !important;
+}
+
+/* melhora a tipografia da legenda à direita */
+.ops-card__header .small{
+  color: rgba(255,255,255,.85);
+}

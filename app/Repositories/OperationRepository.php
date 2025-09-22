@@ -191,4 +191,38 @@ final class OperationRepository
             ':id'    => $id,
         ]);
     }
+
+    public function fetchLastCode(): ?string
+    {
+        $pdo = \Core\Database::pdo();
+        // Pega o último código não-nulo pela ordem de criação
+        $st = $pdo->query("SELECT code FROM operations WHERE code IS NOT NULL AND code <> '' ORDER BY id DESC LIMIT 1");
+        $v = $st->fetchColumn();
+        return $v !== false ? (string)$v : null;
+    }
+
+    /**
+     * Gera o próximo código a partir do último.
+     * Regras:
+     * - Se terminar em número (ex.: "OP-0012" ou "2025-0007"), incrementa preservando zeros.
+     * - Se for apenas número, incrementa (0012 -> 0013).
+     * - Se não houver último, começa em "0001".
+     */
+    public function generateNextCode(): string
+    {
+        $last = $this->fetchLastCode();
+        if (!$last) return '0001';
+
+        if (preg_match('/^(.*?)(\d+)$/', $last, $m)) {
+            $prefix = $m[1];
+            $num    = $m[2];
+            $next   = (string)((int)$num + 1);
+            // preserva largura com zeros à esquerda
+            $next   = str_pad($next, strlen($num), '0', STR_PAD_LEFT);
+            return $prefix . $next;
+        }
+
+        // Se não terminar em número, anexa "-0001"
+        return rtrim($last, '-') . '-0001';
+    }
 }

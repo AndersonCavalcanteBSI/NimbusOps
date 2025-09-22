@@ -20,7 +20,6 @@ $active = fn(string $needle) => str_starts_with($path, $needle) ? 'active' : '';
                     <a class="nav-link <?= $active('/measurements') ?>" href="/measurements/upload">Medições</a>
                 </li>
                 <?php if ($role === 'admin'): ?>
-                    <li class="nav-item"><a class="nav-link" href="/operations/create">Nova Operação</a></li>
                     <li class="nav-item"><a class="nav-link" href="/users">Usuários</a></li>
                 <?php endif; ?>
             </ul>

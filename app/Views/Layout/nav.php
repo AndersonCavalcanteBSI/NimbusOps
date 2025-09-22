@@ -30,7 +30,7 @@ $active = fn(string $needle) => str_starts_with($path, $needle) ? 'active' : '';
                     <li class="nav-item"><a class="nav-link <?= $active('/login') ?>" href="/login">Entrar</a></li>
                     <li class="nav-item"><a class="nav-link <?= $active('/register') ?>" href="/register">Registrar</a></li>
                 <?php elseif (!$msLinked): ?>
-                    <li class="nav-item"><a class="nav-link <?= $active('/microsoft/link') ?>" href="/microsoft/link">Vincular Microsoft</a></li>
+                    <li class="nav-item"><a class="nav-link <?= $active('/auth/microsoft') ?>" href="/auth/microsoft">Vincular Microsoft</a></li>
                 <?php else: ?>
                     <li class="nav-item"><a class="nav-link" href="/profile"><?= htmlspecialchars($_SESSION['user']['name'] ?? 'Perfil') ?></a></li>
                 <?php endif; ?>

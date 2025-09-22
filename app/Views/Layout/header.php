@@ -2,6 +2,7 @@
 $role      = $_SESSION['user']['role'] ?? 'user';
 $loggedIn  = !empty($_SESSION['user']['id']);
 $msLinked  = (int)($_SESSION['user']['ms_linked'] ?? 0) === 1;
+$pageCss   = $pageCss   ?? [];
 ?>
 <!doctype html>
 <html lang="pt-br">
@@ -12,6 +13,9 @@ $msLinked  = (int)($_SESSION['user']['ms_linked'] ?? 0) === 1;
     <title><?= isset($pageTitle) ? htmlspecialchars($pageTitle) . ' — ' : '' ?>NimbusOps</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-sRIl4kxILFvY47J16cr9ZwB07vP4J8+LH7qKQnuqkuIAvNWLzeN8tE5YBujZqJLB" crossorigin="anonymous">
     <link href="/assets/app.css" rel="stylesheet">
+    <?php foreach ($pageCss as $href): ?>
+        <link rel="stylesheet" href="<?= htmlspecialchars($href) ?>">
+    <?php endforeach; ?>
 </head>
 
 <body>

@@ -1,0 +1,38 @@
+/* Fundo sólido ocupando 100% da viewport */
+html, body {
+  height: 100%;
+  background: #0b1d33; /* << cor única pedida */
+}
+
+/* Wrapper da página de login */
+.login-bg{
+  min-height: 100vh;          /* garante altura cheia */
+  background: #0b1d33;        /* redundante por segurança */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 48px 16px;         /* respiro nas bordas menores */
+}
+
+/* Cartão */
+.login-card{
+  max-width: 520px;
+  border: 0;
+  border-radius: 20px;
+  background: #fff;
+  box-shadow:
+    0 20px 45px rgba(3,15,30,.35),
+    inset 0 0 0 1px rgba(255,255,255,.04);
+}
+
+/* Logo e inputs */
+.login-logo{height:54px;object-fit:contain}
+.form-control.round{border-radius:12px;padding:.75rem .9rem}
+.input-shadow:focus{box-shadow:0 0 0 .25rem rgba(14,45,82,.15);border-color:#0e2d52}
+
+/* Botões */
+.btn-pill{border-radius:999px;padding:.7rem 1.2rem;font-weight:600}
+.btn-brand{background:#0e2d52;color:#fff;border:0}
+.btn-brand:hover{background:#0b2748;color:#fff}
+.btn-microsoft{background:#fff;border:1px solid #e5e7eb}
+.btn-microsoft:hover{background:#f8fafc}

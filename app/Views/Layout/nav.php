@@ -1,39 +1,71 @@
 <?php
-$path = $_SERVER['REQUEST_URI'] ?? '/';
-$active = fn(string $needle) => str_starts_with($path, $needle) ? 'active' : '';
+$path   = $_SERVER['REQUEST_URI'] ?? '/';
+$active = fn(string $needle) => (str_starts_with($path, $needle) ? ' is-active' : '');
+$h = fn($s) => htmlspecialchars((string)$s);
 ?>
-<nav class="navbar navbar-expand-lg navbar-light bg-light mb-3 border-bottom">
-    <div class="container-fluid">
-        <a class="navbar-brand" href="/">NimbusOps</a>
+<nav class="navbar navbar-expand-lg topbar shadow-sm">
+    <div class="container">
+        <!-- Brand -->
+        <a class="navbar-brand d-flex align-items-center gap-2" href="/">
+            <img src="/assets/icons/logo.png" alt="BSI Capital" class="topbar-logo">
+            <span class="topbar-brandtext">NimbusOps</span>
+        </a>
 
-        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#topNav"
+        <!-- Toggler -->
+        <button class="navbar-toggler topbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#topNav"
             aria-controls="topNav" aria-expanded="false" aria-label="Alternar navegação">
-            <span class="navbar-toggler-icon"></span>
+            ☰
         </button>
 
         <div class="collapse navbar-collapse" id="topNav">
-            <ul class="navbar-nav me-auto mb-2 mb-lg-0">
+            <!-- Left -->
+            <ul class="navbar-nav me-auto topnav">
                 <li class="nav-item">
-                    <a class="nav-link <?= $active('/operations') ?>" href="/operations">Operações</a>
+                    <a class="topnav-link<?= $active('/operations') ?>" href="/operations">Operações</a>
                 </li>
                 <li class="nav-item">
-                    <a class="nav-link <?= $active('/measurements') ?>" href="/measurements/upload">Medições</a>
+                    <a class="topnav-link<?= $active('/measurements') ?>" href="/measurements/upload">Medições</a>
                 </li>
-                <?php if ($role === 'admin'): ?>
-                    <li class="nav-item"><a class="nav-link" href="/users">Usuários</a></li>
+                <?php if (($role ?? 'user') === 'admin'): ?>
+                    <li class="nav-item">
+                        <a class="topnav-link<?= $active('/users') ?>" href="/users">Usuários</a>
+                    </li>
                 <?php endif; ?>
             </ul>
 
-            <ul class="navbar-nav ms-auto">
-                <?php if (!$loggedIn): ?>
-                    <li class="nav-item"><a class="nav-link <?= $active('/login') ?>" href="/login">Entrar</a></li>
-                    <li class="nav-item"><a class="nav-link <?= $active('/register') ?>" href="/register">Registrar</a></li>
-                <?php elseif (!$msLinked): ?>
-                    <li class="nav-item"><a class="nav-link <?= $active('/auth/microsoft') ?>" href="/auth/microsoft">Vincular Microsoft</a></li>
+            <!-- Right -->
+            <ul class="navbar-nav ms-auto align-items-center gap-2">
+                <?php if (!($loggedIn ?? false)): ?>
+                    <li class="nav-item"><a class="btn btn-outline-brand btn-pill" href="/login">Entrar</a></li>
                 <?php else: ?>
-                    <li class="nav-item"><a class="nav-link" href="/profile"><?= htmlspecialchars($_SESSION['user']['name'] ?? 'Perfil') ?></a></li>
+                    <?php if (!($msLinked ?? false)): ?>
+                        <li class="nav-item d-none d-lg-block">
+                            <a class="btn btn-outline-brand btn-pill" href="/auth/microsoft">Vincular Microsoft</a>
+                        </li>
+                    <?php endif; ?>
+
+                    <!-- Usuário (dropdown simples) -->
+                    <li class="nav-item dropdown">
+                        <a class="topnav-user dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                            <span class="user-dot"></span>
+                            <?= $h($_SESSION['user']['name'] ?? 'Perfil') ?>
+                        </a>
+                        <ul class="dropdown-menu dropdown-menu-end">
+                            <li><a class="dropdown-item" href="/profile">Meu perfil</a></li>
+                            <?php if (!($msLinked ?? false)): ?>
+                                <li><a class="dropdown-item" href="/auth/microsoft">Vincular Microsoft</a></li>
+                            <?php endif; ?>
+                            <li>
+                                <hr class="dropdown-divider">
+                            </li>
+                            <li><a class="dropdown-item text-danger" href="/logout">Sair</a></li>
+                        </ul>
+                    </li>
+
+                    <li class="nav-item d-lg-none">
+                        <a class="topnav-link text-danger" href="/logout">Sair</a>
+                    </li>
                 <?php endif; ?>
-                <li class="nav-item"><a class="nav-link" href="/logout">Sair</a></li>
             </ul>
         </div>
     </div>

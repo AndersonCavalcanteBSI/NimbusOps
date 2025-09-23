@@ -619,3 +619,66 @@ input[readonly]{
   background:#f3f7fc; color:#0b1d33; font-weight:700;
   border-bottom:1px solid #e3edf9;
 }
+
+/* ========== TOPBAR (navbar) ========== */
+.topbar{
+  background: #0b1d33; /* navy BSI */
+  border-bottom: 1px solid rgba(255,255,255,.06);
+}
+.topbar .container{ padding-top:.35rem; padding-bottom:.35rem; }
+
+.topbar-logo{ height:28px; object-fit:contain; filter: drop-shadow(0 1px 1px rgba(0,0,0,.25)); }
+.topbar-brandtext{
+  color:#e8eef6; font-weight:700; letter-spacing:.2px;
+}
+
+.topbar-toggler{
+  color:#c7d3e0; border:1px solid rgba(255,255,255,.15); border-radius:10px;
+  padding:.3rem .6rem; font-size:1rem;
+}
+
+/* Links principais */
+.topnav{ gap:.25rem; }
+.topnav-link{
+  display:inline-block; padding:.55rem .8rem; border-radius:10px;
+  color:#c7d3e0; text-decoration:none; font-weight:600;
+  transition: all .18s ease-in-out;
+}
+.topnav-link:hover{ color:#fff; background:rgba(255,255,255,.08); }
+.topnav-link.is-active{
+  color:#fff; background:rgba(255,255,255,.14); box-shadow: inset 0 0 0 1px rgba(255,255,255,.07);
+}
+
+/* Usuário (direita) */
+.topnav-user{
+  display:inline-flex; align-items:center; gap:.5rem;
+  padding:.45rem .75rem; border-radius:999px;
+  color:#e6ecf5; text-decoration:none; font-weight:600;
+  background: rgba(255,255,255,.06);
+  transition: background .18s ease-in-out;
+}
+.topnav-user:hover{ background: rgba(255,255,255,.12); color:#fff; }
+.user-dot{
+  width:8px; height:8px; border-radius:50%; background:#60d394; display:inline-block;
+  box-shadow:0 0 0 2px rgba(11,29,51,.9);
+}
+
+/* Dropdown override no tema escuro da topbar */
+.topbar .dropdown-menu{
+  border-radius:12px; border:1px solid rgba(0,0,0,.08);
+  box-shadow:0 10px 30px rgba(0,0,0,.15);
+}
+
+/* Botões já existentes no tema */
+.btn.btn-outline-brand{
+  border-color:#2a4e7a; color:#e6ecf5; background:transparent;
+}
+.btn.btn-outline-brand:hover{
+  background:#15304c; color:#fff; border-color:#2a4e7a;
+}
+
+/* Responsivo */
+@media (max-width: 991.98px){
+  .topnav-link{ padding:.6rem .75rem; }
+  .topbar .container{ padding-top:.45rem; padding-bottom:.45rem; }
+}

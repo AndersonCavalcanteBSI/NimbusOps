@@ -446,3 +446,176 @@ input[readonly]{
 .ops-card__header .small{
   color: rgba(255,255,255,.85);
 }
+
+/* aumenta a altura visível de opções quando o select está focado (sem plugins) */
+.op-select-tall { transition: box-shadow .15s ease; }
+.op-select-open { box-shadow: 0 0 0 .2rem rgba(14,45,82,.12); }
+@media (min-width: 992px){
+  .op-select-tall { min-height: 2.75rem; }
+  .op-select-open { /* só aparência; o tamanho da lista é do SO/navegador */ }
+}
+
+/* ---- Review timeline ---- */
+.review-timeline { position: relative; padding-left: 1rem; }
+.review-timeline__item { position: relative; padding-left: 1.25rem; margin-bottom: 1rem; }
+.review-timeline__item:last-child { margin-bottom: 0; }
+.review-timeline__dot {
+  position: absolute; left: 0; top: .45rem;
+  width: .6rem; height: .6rem; border-radius: 50%;
+  background: #0b1d33;
+  box-shadow: 0 0 0 3px rgba(11,29,51,.12);
+}
+.review-timeline__content { background: #fff; border: 1px solid #eef2f7; border-radius: 10px; padding: .75rem .9rem; }
+
+/* modal-like titlebar reused in cards */
+.modal-titlebar {
+  background: #0e233b; color:#fff; border-radius: 10px 10px 0 0;
+  padding: .6rem .9rem; display:flex; align-items:center; gap:.5rem;
+}
+.modal-titlebar__icon {
+  width:28px;height:28px;border-radius:50%;
+  background:#102b49; display:flex; align-items:center; justify-content:center; color:#9eb6cf;
+}
+.modal-titlebar__text { font-weight:700; }
+
+/* stage badge cores (já usadas nas outras telas) */
+.stage-badge { display:inline-block; padding:.35rem .6rem; border-radius:999px; font-weight:600; font-size:.85rem; }
+.stage--engenharia{background:#e6f0ff;color:#0b3b7a}
+.stage--gestao{background:#eaf6f0;color:#1d6b43}
+.stage--juridico{background:#f3ecff;color:#5a35a3}
+.stage--pagamento{background:#fff4e6;color:#9a5a00}
+.stage--finalizar{background:#e8f6ff;color:#0a5b7a}
+.stage--completo{background:#e8ffe8;color:#1c6a1c}
+.stage--default{background:#edf2f7;color:#2d3748}
+
+/* botões coerentes */
+.btn-pill{border-radius:999px}
+.btn-brand{background:#0e2d52;color:#fff;border:0}
+.btn-brand:hover{background:#0b2748;color:#fff}
+.btn-outline-brand{border:1px solid #0e2d52;color:#0e2d52;background:#fff}
+.btn-outline-brand:hover{background:#0e2d52;color:#fff}
+
+.pay-row .btn.pay-remove{padding:.45rem .7rem; line-height:1}
+
+/* ----- Pagamentos: header “premium” ----- */
+.payments-header{
+  display:flex; align-items:center; justify-content:space-between;
+  padding:.9rem 1rem;
+  border:0;
+  border-top-left-radius:14px; border-top-right-radius:14px;
+  background: linear-gradient(180deg, #0f2745 0%, #0b1d33 100%);
+  color:#e9eef6;
+  box-shadow: inset 0 -1px 0 rgba(255,255,255,.04);
+}
+
+.payments-header__left{display:flex; align-items:center; gap:.6rem;}
+.payments-header__icon{
+  display:inline-flex; align-items:center; justify-content:center;
+  width:28px; height:28px; border-radius:999px;
+  background:rgba(255,255,255,.06); color:#cfe1ff;
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,.08);
+}
+.payments-header__title{
+  font-weight:600; letter-spacing:.2px; color:#f3f6fb;
+}
+
+/* Total à direita como “pill” */
+.payments-header__right{
+  display:flex; align-items:center; gap:.5rem;
+  background: rgba(255,255,255,.08);
+  padding:.35rem .7rem; border-radius:999px;
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,.09);
+}
+.payments-total__label{font-size:.85rem; color:#d3dbea;}
+.payments-total__value{font-weight:700; color:#ffffff;}
+
+/* ======= Tabela de pagamentos ======= */
+.payments-table {
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+.payments-table thead th {
+  background: #f5f8fc;
+  color: #0b1d33;
+  font-weight: 700;
+  letter-spacing: .2px;
+  border-bottom: 1px solid #e4ecf5 !important;
+  padding-top: .85rem;
+  padding-bottom: .85rem;
+  vertical-align: middle;
+}
+
+/* cantos arredondados (combina com o card) */
+.payments-table thead th:first-child {
+  border-top-left-radius: 12px;
+}
+.payments-table thead th:last-child {
+  border-top-right-radius: 12px;
+}
+
+/* linhas do corpo mais limpas + hover */
+.payments-table tbody tr {
+  border-bottom: 1px solid #eef3f8;
+}
+.payments-table tbody tr:hover {
+  background: #f9fbfe;
+}
+
+/* células */
+.payments-table td {
+  vertical-align: middle;
+  padding-top: .7rem;
+  padding-bottom: .7rem;
+}
+
+/* realce sutil para valores */
+.payments-table td.text-end {
+  font-weight: 600;
+  color: #0e2d52;
+}
+
+/* cabeçalho “gruda” ao rolar dentro do card (se houver) */
+.table-responsive {
+  --sticky-offset: 0; /* ajuste se o card-header for sticky */
+}
+.payments-table thead th {
+  position: sticky;
+  top: var(--sticky-offset);
+  z-index: 1;
+}
+
+/* chips (badges) para métodos e meta-infos */
+.chip{
+  display:inline-flex; align-items:center; gap:.35rem;
+  padding:.25rem .6rem; border-radius:999px;
+  font-size:.78rem; font-weight:600; line-height:1;
+  background:#eef2f7; color:#0b1d33; border:1px solid #e6ebf2;
+}
+.chip--muted{ background:#f5f7fb; color:#6b7b93; border-color:#eef2f7; }
+.chip--pix{ background:#e6fff7; color:#0c6; border-color:#bff3e3; }
+.chip--ted{ background:#eaf2ff; color:#2d6cdf; border-color:#d6e5ff; }
+.chip--boleto{ background:#fff6e6; color:#b7791f; border-color:#ffe6bf; }
+.chip--card{ background:#f0eaff; color:#6b46c1; border-color:#e3d7ff; }
+.chip--neutral{ background:#f1f5f9; color:#475569; border-color:#e2e8f0; }
+
+/* total destacado à direita do header */
+.total-pill{
+  display:inline-block; padding:.35rem .7rem;
+  border-radius:999px; background:#0b1d33; color:#fff;
+  font-weight:700; font-variant-numeric:tabular-nums;
+}
+
+/* tabela de pagamentos */
+.payments-table td, .payments-table th{ vertical-align: middle; }
+.payments-table tbody tr:hover{ background:#f8fbff; }
+.payments-table tfoot .payments-total td{
+  background:#f0f6ff; border-top:2px solid #d6e4ff;
+  font-weight:700;
+}
+
+/* cabeçalho fiel ao tema (já usado em outras telas) */
+.ops-thead th{
+  background:#f3f7fc; color:#0b1d33; font-weight:700;
+  border-bottom:1px solid #e3edf9;
+}

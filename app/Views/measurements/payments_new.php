@@ -21,7 +21,7 @@ $fmt = function (?string $d): string {
                     Operação: <?= htmlspecialchars($file['op_title']) ?>
                 </p>
             </div>
-            <a href="/operations/<?= (int)$file['op_id'] ?>" class="btn btn-outline-brand btn-pill">‹ Voltar</a>
+            <a href="/operations/<?= (int)$file['op_id'] ?>" class="btn btn-brand btn-pill">‹ Voltar</a>
         </div>
     </div>
 </section>
@@ -47,7 +47,7 @@ $fmt = function (?string $d): string {
                 <div class="small text-muted mt-1">Enviado em <?= $fmt($file['uploaded_at'] ?? null) ?></div>
             </div>
             <?php if (!empty($file['storage_path'])): ?>
-                <a class="btn btn-outline-brand btn-pill" target="_blank" href="<?= htmlspecialchars($file['storage_path']) ?>">
+                <a class="btn btn-brand btn-pill" target="_blank" href="<?= htmlspecialchars($file['storage_path']) ?>">
                     Abrir / Baixar
                 </a>
             <?php endif; ?>
@@ -119,7 +119,7 @@ $fmt = function (?string $d): string {
 
             <!-- Rodapé do card: adicionar linha + total -->
             <div class="card-footer d-flex flex-wrap align-items-center justify-content-between gap-2">
-                <button type="button" id="addRow" class="btn btn-outline-brand btn-pill">
+                <button type="button" id="addRow" class="btn btn-brand btn-pill">
                     + Adicionar pagamento
                 </button>
                 <div class="ms-auto">
@@ -130,7 +130,7 @@ $fmt = function (?string $d): string {
 
             <div class="p-3 d-flex gap-2">
                 <button class="btn btn-brand btn-pill">Salvar pagamentos</button>
-                <a href="/operations/<?= (int)$file['op_id'] ?>" class="btn btn-outline-brand btn-pill">Cancelar</a>
+                <a href="/operations/<?= (int)$file['op_id'] ?>" class="btn btn-brand btn-pill">Cancelar</a>
             </div>
         </form>
     </div>

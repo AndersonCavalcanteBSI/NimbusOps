@@ -36,7 +36,7 @@ $statusBadge = function (string $st): string {
                     Operação: <?= htmlspecialchars($file['op_title'] ?? '-') ?>
                 </p>
             </div>
-            <a href="/operations/<?= (int)$operationId ?>" class="btn btn-outline-brand btn-pill">‹ Voltar</a>
+            <a href="/operations/<?= (int)$operationId ?>" class="btn btn-brand btn-pill">‹ Voltar</a>
         </div>
     </div>
 </section>
@@ -52,7 +52,7 @@ $statusBadge = function (string $st): string {
                     <div class="fw-semibold text-dark"><?= htmlspecialchars($file['filename'] ?? '-') ?></div>
                     <?php if (!empty($file['storage_path'])): ?>
                         <div class="mt-2">
-                            <a class="btn btn-sm btn-outline-brand btn-pill" target="_blank" href="<?= htmlspecialchars($file['storage_path']) ?>">
+                            <a class="btn btn-sm btn-brand btn-pill" target="_blank" href="<?= htmlspecialchars($file['storage_path']) ?>">
                                 Abrir / Baixar
                             </a>
                         </div>
@@ -211,7 +211,7 @@ $statusBadge = function (string $st): string {
         </div>
         <div class="d-flex gap-2">
             <button class="btn btn-brand btn-pill">Confirmar finalização</button>
-            <a class="btn btn-outline-brand btn-pill" href="/operations/<?= (int)$operationId ?>">Cancelar</a>
+            <a class="btn btn-brand btn-pill" href="/operations/<?= (int)$operationId ?>">Cancelar</a>
         </div>
     </form>
 

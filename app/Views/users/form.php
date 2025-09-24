@@ -21,7 +21,7 @@ $msToken     = $msToken ?? null;
                 <h1 class="ops-hero__title"><?= $isEdit ? 'Editar usuário' : 'Novo usuário' ?></h1>
                 <p class="ops-hero__subtitle">Defina dados de acesso, papel e integrações</p>
             </div>
-            <a href="/users" class="btn btn-outline-brand btn-pill">‹ Voltar</a>
+            <a href="/users" class="btn btn-brand btn-pill">‹ Voltar</a>
         </div>
     </div>
 </section>
@@ -81,7 +81,7 @@ $msToken     = $msToken ?? null;
             </div>
             <div class="card-footer d-flex gap-2">
                 <button class="btn btn-brand btn-pill"><?= $isEdit ? 'Salvar alterações' : 'Criar usuário' ?></button>
-                <a href="/users" class="btn btn-outline-brand btn-pill">Cancelar</a>
+                <a href="/users" class="btn btn-brand btn-pill">Cancelar</a>
             </div>
         </div>
     </form>
@@ -106,8 +106,8 @@ $msToken     = $msToken ?? null;
 
                 <div class="d-flex gap-2">
                     <?php if ($msConnected): ?>
-                        <a href="/auth/microsoft" class="btn btn-outline-brand btn-pill">Reautenticar</a>
-                        <a href="/auth/microsoft/unlink" class="btn btn-outline-danger btn-pill"
+                        <a href="/auth/microsoft" class="btn btn-brand btn-pill">Reautenticar</a>
+                        <a href="/auth/microsoft/unlink" class="btn btn-danger btn-pill"
                             onclick="return confirm('Deseja realmente desvincular a conta Microsoft?');">
                             Desconectar
                         </a>

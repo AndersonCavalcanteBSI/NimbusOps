@@ -73,7 +73,7 @@ $roleBadge = function (string $role): array {
             </div>
             <div class="mt-3 d-flex gap-2">
                 <button class="btn btn-brand">Filtrar</button>
-                <a class="btn btn-outline-brand" href="/users">Limpar</a>
+                <a class="btn btn-brand" href="/users">Limpar</a>
             </div>
         </div>
     </form>
@@ -118,7 +118,7 @@ $roleBadge = function (string $role): array {
                                 </td>
                                 <td><?= $fmt($u['last_login_at'] ?? null) ?></td>
                                 <td class="text-end">
-                                    <a class="btn btn-sm btn-outline-brand" href="/users/<?= (int)($u['id'] ?? 0) ?>/edit">Editar</a>
+                                    <a class="btn btn-sm btn-brand" href="/users/<?= (int)($u['id'] ?? 0) ?>/edit">Editar</a>
                                 </td>
                             </tr>
                     <?php endforeach;

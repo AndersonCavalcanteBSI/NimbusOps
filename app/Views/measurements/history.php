@@ -43,7 +43,7 @@ $badgeCls = match ($statusLower) {
                     Operação: <?= $opTitle ?>
                 </p>
             </div>
-            <a href="/operations/<?= $operationId ?>" class="btn btn-outline-brand btn-pill">‹ Voltar</a>
+            <a href="/operations/<?= $operationId ?>" class="btn btn-brand btn-pill">‹ Voltar</a>
         </div>
     </div>
 </section>
@@ -59,7 +59,7 @@ $badgeCls = match ($statusLower) {
                     <div class="fw-semibold text-dark"><?= $fileName ?></div>
                     <?php if ($storePath): ?>
                         <div class="mt-2">
-                            <a class="btn btn-sm btn-outline-brand btn-pill" target="_blank" href="<?= $h($storePath) ?>">Abrir / Baixar</a>
+                            <a class="btn btn-sm btn-brand btn-pill" target="_blank" href="<?= $h($storePath) ?>">Abrir / Baixar</a>
                         </div>
                     <?php endif; ?>
                 </div>

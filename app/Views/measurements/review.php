@@ -33,7 +33,7 @@ $stageInfo = $stageMap[(int)$stage] ?? ['label' => $stage . 'ª validação', 'c
                 </p>
             </div>
 
-            <a href="/operations/<?= (int)$operationId ?>" class="btn btn-outline-brand btn-pill">
+            <a href="/operations/<?= (int)$operationId ?>" class="btn btn-brand btn-pill">
                 ‹ Voltar
             </a>
         </div>
@@ -58,7 +58,7 @@ $stageInfo = $stageMap[(int)$stage] ?? ['label' => $stage . 'ª validação', 'c
                     <div class="fw-semibold text-dark"><?= htmlspecialchars($file['filename']) ?></div>
                     <?php if (!empty($file['storage_path'])): ?>
                         <div class="mt-2 d-flex gap-2">
-                            <a class="btn btn-sm btn-outline-brand" href="<?= htmlspecialchars($file['storage_path']) ?>" target="_blank">Abrir / Baixar</a>
+                            <a class="btn btn-sm btn-brand" href="<?= htmlspecialchars($file['storage_path']) ?>" target="_blank">Abrir / Baixar</a>
                         </div>
                     <?php endif; ?>
                 </div>
@@ -140,7 +140,7 @@ $stageInfo = $stageMap[(int)$stage] ?? ['label' => $stage . 'ª validação', 'c
                 4ª validação (gestão de pagamentos). Registre os pagamentos e depois retorne aqui para aprovar esta etapa.
             </div>
             <p>
-                <a class="btn btn-outline-brand btn-pill" href="/measurements/<?= (int)$file['id'] ?>/payments/new" target="_blank">
+                <a class="btn btn-brand btn-pill" href="/measurements/<?= (int)$file['id'] ?>/payments/new" target="_blank">
                     Registrar / Editar Pagamentos
                 </a>
             </p>

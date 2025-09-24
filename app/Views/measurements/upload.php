@@ -14,7 +14,7 @@ include __DIR__ . '/../layout/header.php';
                 <h1 class="ops-hero__title">Upload de Medição</h1>
                 <p class="ops-hero__subtitle">Envie o arquivo da medição para iniciar o fluxo de validações</p>
             </div>
-            <a href="/operations" class="btn btn-outline-brand btn-pill d-inline-flex align-items-center gap-2">
+            <a href="/operations" class="btn btn-brand btn-pill d-inline-flex align-items-center gap-2">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
                     <path d="M15 18l-6-6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
                 </svg>
@@ -104,7 +104,7 @@ include __DIR__ . '/../layout/header.php';
                         <span class="spinner-border spinner-border-sm d-none" role="status" aria-hidden="true"></span>
                         <span>Enviar</span>
                     </button>
-                    <a class="btn btn-outline-brand btn-pill" href="/operations">Cancelar</a>
+                    <a class="btn btn-brand btn-pill" href="/operations">Cancelar</a>
                 </div>
             </form>
         </div>

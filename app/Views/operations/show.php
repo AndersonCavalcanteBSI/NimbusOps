@@ -11,7 +11,7 @@ include __DIR__ . '/../layout/header.php';
             <h1 class="ops-hero__title mb-0">Operação</h1>
             <p class="ops-hero__subtitle">Detalhes, histórico e arquivos de medição</p>
         </div>
-        <a href="/operations" class="btn btn-outline-brand d-inline-flex align-items-center gap-2 mb-3">
+        <a href="/operations" class="btn btn-brand d-inline-flex align-items-center gap-2 mb-3">
             <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
                 <path d="M10.5 13L5 8l5.5-5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
             </svg>
@@ -83,7 +83,7 @@ include __DIR__ . '/../layout/header.php';
             </div>
 
             <div class="mt-3 d-flex gap-2">
-                <button class="btn btn-outline-brand" data-bs-toggle="modal" data-bs-target="#opHistoryModal">
+                <button class="btn btn-brand" data-bs-toggle="modal" data-bs-target="#opHistoryModal">
                     Histórico da operação
                 </button>
                 <button class="btn btn-brand" data-bs-toggle="modal" data-bs-target="#filesModal">
@@ -203,7 +203,7 @@ include __DIR__ . '/../layout/header.php';
                 </div>
 
                 <div class="modal-footer bg-light-subtle">
-                    <button type="button" class="btn btn-outline-brand" data-bs-dismiss="modal">Fechar</button>
+                    <button type="button" class="btn btn-brand" data-bs-dismiss="modal">Fechar</button>
                 </div>
             </div>
         </div>
@@ -282,12 +282,12 @@ include __DIR__ . '/../layout/header.php';
                                             <?php endif; ?>
 
                                             <?php if (!empty($f['storage_path'])): ?>
-                                                <a class="btn btn-sm btn-outline-brand" href="<?= htmlspecialchars($f['storage_path']) ?>" target="_blank">
+                                                <a class="btn btn-sm btn-brand" href="<?= htmlspecialchars($f['storage_path']) ?>" target="_blank">
                                                     Abrir
                                                 </a>
                                             <?php endif; ?>
 
-                                            <a class="btn btn-sm btn-outline-brand" href="<?= htmlspecialchars($f['history_url']) ?>">
+                                            <a class="btn btn-sm btn-brand" href="<?= htmlspecialchars($f['history_url']) ?>">
                                                 Ver histórico
                                             </a>
                                         </div>

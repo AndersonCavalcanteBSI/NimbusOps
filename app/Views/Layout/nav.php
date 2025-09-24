@@ -6,9 +6,8 @@ $h = fn($s) => htmlspecialchars((string)$s);
 <nav class="navbar navbar-expand-lg topbar shadow-sm">
     <div class="container">
         <!-- Brand -->
-        <a class="navbar-brand d-flex align-items-center gap-2" href="/">
-            <img src="/assets/icons/logo.png" alt="BSI Capital" class="topbar-logo">
-            <span class="topbar-brandtext">NimbusOps</span>
+        <a class="navbar-brand d-flex align-items-center gap-2" href="/operations">
+            <img src="/assets/icons/logo2.png" alt="BSI Capital" class="topbar-logo">
         </a>
 
         <!-- Toggler -->

@@ -12,7 +12,7 @@ include __DIR__ . '/../layout/header.php';
             <p class="ops-hero__subtitle">Acompanhe o status das operações e o calendário de medições</p>
         </div>
         <?php if ($role === 'admin'): ?>
-            <a href="/operations/create" class="btn btn-outline-brand d-inline-flex align-items-center gap-2 mb-3">
+            <a href="/operations/create" class="btn btn-brand btn-pill d-inline-flex align-items-center gap-2 mb-3">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
                     <path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
                 </svg>
@@ -57,7 +57,7 @@ include __DIR__ . '/../layout/header.php';
 
             <div class="mt-3 d-flex gap-2">
                 <button class="btn btn-brand">Filtrar</button>
-                <a class="btn btn-outline-brand" href="/operations">Limpar</a>
+                <a class="btn btn-brand" href="/operations">Limpar</a>
             </div>
         </div>
     </form>
@@ -148,7 +148,7 @@ include __DIR__ . '/../layout/header.php';
                                 <td class="d-none d-lg-table-cell"><?= $fmt($row['last_measurement_at'] ?? null) ?></td>
 
                                 <td class="text-end">
-                                    <a class="btn btn-sm btn-outline-brand" href="/operations/<?= (int)$row['id'] ?>">Abrir</a>
+                                    <a class="btn btn-sm btn-brand" href="/operations/<?= (int)$row['id'] ?>">Abrir</a>
                                 </td>
                             </tr>
                     <?php endforeach;

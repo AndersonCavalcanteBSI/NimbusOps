@@ -21,7 +21,7 @@ $opts = function (array $users) {
             <h1 class="ops-hero__title mb-0">Nova Operação</h1>
             <p class="ops-hero__subtitle">Cadastre os dados e defina os responsáveis por cada etapa</p>
         </div>
-        <a href="/operations" class="btn btn-outline-brand d-inline-flex align-items-center gap-2 mb-3">
+        <a href="/operations" class="btn btn-brand d-inline-flex align-items-center gap-2 mb-3">
             <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
                 <path d="M10.5 13L5 8l5.5-5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
             </svg>
@@ -196,7 +196,7 @@ $opts = function (array $users) {
 
         <!-- Ações -->
         <div class="col-12 d-flex gap-2 justify-content-end">
-            <a class="btn btn-outline-brand" href="/operations">Cancelar</a>
+            <a class="btn btn-brand" href="/operations">Cancelar</a>
             <button class="btn btn-brand">Criar operação</button>
         </div>
     </form>

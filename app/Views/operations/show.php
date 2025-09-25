@@ -240,18 +240,63 @@ include __DIR__ . '/../layout/header.php';
                             $uid     = (int)($_SESSION['user']['id'] ?? $_SESSION['user_id'] ?? 0);
                             $role    = (string)($_SESSION['user']['role'] ?? '');
                             $isAdmin = ($role === 'admin');
+
+                            // status da operação (p/ decidir Finalizar)
+                            $opStatusRaw = (string)($op['status'] ?? '');
+                            $opStatusNorm = mb_strtolower(strtr($opStatusRaw, [
+                                'Á' => 'A',
+                                'À' => 'A',
+                                'Â' => 'A',
+                                'Ã' => 'A',
+                                'á' => 'a',
+                                'à' => 'a',
+                                'â' => 'a',
+                                'ã' => 'a',
+                                'É' => 'E',
+                                'È' => 'E',
+                                'Ê' => 'E',
+                                'é' => 'e',
+                                'è' => 'e',
+                                'ê' => 'e',
+                                'Í' => 'I',
+                                'Ì' => 'I',
+                                'Î' => 'I',
+                                'í' => 'i',
+                                'ì' => 'i',
+                                'î' => 'i',
+                                'Ó' => 'O',
+                                'Ò' => 'O',
+                                'Ô' => 'O',
+                                'Õ' => 'O',
+                                'ó' => 'o',
+                                'ò' => 'o',
+                                'ô' => 'o',
+                                'õ' => 'o',
+                                'Ú' => 'U',
+                                'Ù' => 'U',
+                                'Û' => 'U',
+                                'ú' => 'u',
+                                'ù' => 'u',
+                                'û' => 'u',
+                                'Ç' => 'C',
+                                'ç' => 'c'
+                            ]), 'UTF-8');
+
+                            $finalizerId = (int)($op['payment_finalizer_user_id'] ?? 0);
                             ?>
                             <?php foreach ($files as $f): ?>
                                 <?php
                                 $histList   = $filesHistory[$f['id']] ?? [];
                                 $fileStatus = (string)($f['file_status'] ?? '');
                                 $isDone     = (mb_strtolower($fileStatus, 'UTF-8') === mb_strtolower('Concluído', 'UTF-8'));
+
+                                // link para analisar a próxima etapa (1..4)
                                 $nextStage  = (int)($f['next_stage'] ?? 1);
                                 $analyzeUrl = !empty($f['review_url'])
                                     ? (string)$f['review_url']
                                     : '/measurements/' . (int)$f['id'] . '/review/' . $nextStage;
-                                // >>> quem deve revisar a PRÓXIMA etapa?
-                                // $op deve estar disponível na página de detalhes da operação
+
+                                // Permissão para ANALISAR (somente até a 4ª)
                                 $expectedReviewerId = match ($nextStage) {
                                     1       => (int)($op['responsible_user_id']        ?? 0),
                                     2       => (int)($op['stage2_reviewer_user_id']     ?? 0),
@@ -259,7 +304,19 @@ include __DIR__ . '/../layout/header.php';
                                     4       => (int)($op['payment_manager_user_id']     ?? 0),
                                     default => 0,
                                 };
-                                $canAnalyze = !$isDone && ($isAdmin || ($uid > 0 && $uid === $expectedReviewerId));
+                                $canAnalyze = !$isDone && $nextStage >= 1 && $nextStage <= 4
+                                    && ($isAdmin || ($uid > 0 && $uid === $expectedReviewerId));
+
+                                // Permissão para FINALIZAR: operação na etapa Finalização + usuário finalizador (ou admin)
+                                $canFinalize = !$isDone
+                                    && in_array($opStatusNorm, ['finalizar', 'finalizacao'], true)
+                                    && ($isAdmin || ($uid > 0 && $uid === $finalizerId));
+
+                                // Se pode finalizar, não mostra Analisar
+                                if ($canFinalize) {
+                                    $canAnalyze = false;
+                                }
+                                $finalizeUrl = '/measurements/' . (int)$f['id'] . '/finalize';
                                 ?>
                                 <div class="list-group-item px-0">
                                     <div class="mf-item d-flex flex-wrap align-items-center gap-3">
@@ -290,6 +347,10 @@ include __DIR__ . '/../layout/header.php';
                                             <?php if ($canAnalyze): ?>
                                                 <a class="btn btn-sm btn-brand ms-2" href="<?= htmlspecialchars($analyzeUrl) ?>">
                                                     Analisar<?= isset($f['next_stage']) ? ' (' . (int)$f['next_stage'] . 'ª)' : '' ?>
+                                                </a>
+                                            <?php elseif ($canFinalize): ?>
+                                                <a class="btn btn-sm btn-brand ms-2" href="<?= htmlspecialchars($finalizeUrl) ?>">
+                                                    Finalizar
                                                 </a>
                                             <?php endif; ?>
                                             <?php if (!empty($f['storage_path'])): ?>

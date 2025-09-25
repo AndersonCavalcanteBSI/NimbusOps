@@ -236,20 +236,31 @@ include __DIR__ . '/../layout/header.php';
                     <?php else: ?>
 
                         <div class="list-group list-group-flush">
+                            <?php
+                            $uid     = (int)($_SESSION['user']['id'] ?? $_SESSION['user_id'] ?? 0);
+                            $role    = (string)($_SESSION['user']['role'] ?? '');
+                            $isAdmin = ($role === 'admin');
+                            ?>
                             <?php foreach ($files as $f): ?>
                                 <?php
+                                $histList   = $filesHistory[$f['id']] ?? [];
                                 $fileStatus = (string)($f['file_status'] ?? '');
                                 $isDone     = (mb_strtolower($fileStatus, 'UTF-8') === mb_strtolower('Concluído', 'UTF-8'));
-
                                 $nextStage  = (int)($f['next_stage'] ?? 1);
                                 $analyzeUrl = !empty($f['review_url'])
                                     ? (string)$f['review_url']
                                     : '/measurements/' . (int)$f['id'] . '/review/' . $nextStage;
-
-                                $statusClass = $isDone ? 'ops-badge ops-badge--success' : 'ops-badge ops-badge--warning';
-                                $statusText  = $fileStatus ?: ($isDone ? 'Concluído' : 'Pendente');
+                                // >>> quem deve revisar a PRÓXIMA etapa?
+                                // $op deve estar disponível na página de detalhes da operação
+                                $expectedReviewerId = match ($nextStage) {
+                                    1       => (int)($op['responsible_user_id']        ?? 0),
+                                    2       => (int)($op['stage2_reviewer_user_id']     ?? 0),
+                                    3       => (int)($op['stage3_reviewer_user_id']     ?? 0),
+                                    4       => (int)($op['payment_manager_user_id']     ?? 0),
+                                    default => 0,
+                                };
+                                $canAnalyze = !$isDone && ($isAdmin || ($uid > 0 && $uid === $expectedReviewerId));
                                 ?>
-
                                 <div class="list-group-item px-0">
                                     <div class="mf-item d-flex flex-wrap align-items-center gap-3">
                                         <!-- Ícone -->
@@ -259,41 +270,39 @@ include __DIR__ . '/../layout/header.php';
                                                 <path d="M14 2v6h6" stroke="currentColor" stroke-width="1.5" />
                                             </svg>
                                         </div>
-
                                         <!-- Título + caminho -->
                                         <div class="mf-file flex-grow-1 min-w-0">
                                             <div class="fw-semibold text-dark text-truncate"><?= htmlspecialchars($f['filename']) ?></div>
                                         </div>
-
                                         <!-- Metas -->
                                         <div class="mf-meta text-muted small">
                                             <div class="text-uppercase opacity-75">Enviado em</div>
                                             <div class="fw-semibold"><?= $fmt($f['uploaded_at'] ?? null) ?></div>
                                         </div>
-
                                         <!-- Status + ações -->
                                         <div class="mf-actions ms-auto d-flex align-items-center gap-2">
-                                            <span class="<?= $statusClass ?>"><?= htmlspecialchars($statusText) ?></span>
-
-                                            <?php if (!$isDone): ?>
-                                                <a class="btn btn-sm btn-brand" href="<?= htmlspecialchars($analyzeUrl) ?>">
+                                            <!--<span class="<?= $statusClass ?>"><?= htmlspecialchars($statusText) ?></span>-->
+                                            <?php if ($isDone): ?>
+                                                <span class="ops-badge ops-badge--success"><?= htmlspecialchars($fileStatus ?: 'Concluído') ?></span>
+                                            <?php else: ?>
+                                                <span class="ops-badge ops-badge--warning"><?= htmlspecialchars($fileStatus ?: 'Pendente') ?></span>
+                                            <?php endif; ?>
+                                            <?php if ($canAnalyze): ?>
+                                                <a class="btn btn-sm btn-brand ms-2" href="<?= htmlspecialchars($analyzeUrl) ?>">
                                                     Analisar<?= isset($f['next_stage']) ? ' (' . (int)$f['next_stage'] . 'ª)' : '' ?>
                                                 </a>
                                             <?php endif; ?>
-
                                             <?php if (!empty($f['storage_path'])): ?>
                                                 <a class="btn btn-sm btn-brand" href="<?= htmlspecialchars($f['storage_path']) ?>" target="_blank">
                                                     Abrir
                                                 </a>
                                             <?php endif; ?>
-
                                             <a class="btn btn-sm btn-brand" href="<?= htmlspecialchars($f['history_url']) ?>">
                                                 Ver histórico
                                             </a>
                                         </div>
                                     </div>
                                 </div>
-
                             <?php endforeach; ?>
                         </div>
 

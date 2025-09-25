@@ -8,16 +8,33 @@ use Core\Database;
 
 final class MeasurementReviewRepository
 {
-    public function createStage(int $fileId, int $stage, int $reviewerUserId): void
+    /*public function createStage(int $fileId, int $stage, int $reviewerUserId): void
     {
         $pdo = Database::pdo();
         $st = $pdo->prepare(
             'INSERT INTO measurement_reviews (measurement_file_id, stage, reviewer_user_id) VALUES (:f,:s,:u)'
         );
         $st->execute([':f' => $fileId, ':s' => $stage, ':u' => $reviewerUserId]);
+    }*/
+
+    public function createStage(int $fileId, int $stage, int $reviewerUserId): void
+    {
+        if ($reviewerUserId <= 0) {
+            throw new \InvalidArgumentException(
+                "Tentativa de criar etapa {$stage} sem um revisor válido para o arquivo {$fileId}"
+            );
+        }
+
+        $pdo = Database::pdo();
+        $st = $pdo->prepare(
+            'INSERT INTO measurement_reviews (measurement_file_id, stage, reviewer_user_id, status)
+         VALUES (:f, :s, :u, "pending")
+         ON DUPLICATE KEY UPDATE reviewer_user_id = VALUES(reviewer_user_id), status = "pending"'
+        );
+        $st->execute([':f' => $fileId, ':s' => $stage, ':u' => $reviewerUserId]);
     }
 
-    public function getStage(int $fileId, int $stage): ?array
+    /*public function getStage(int $fileId, int $stage): ?array
     {
         $pdo = Database::pdo();
         $st = $pdo->prepare(
@@ -26,7 +43,22 @@ final class MeasurementReviewRepository
         $st->execute([':f' => $fileId, ':s' => $stage]);
         $r = $st->fetch();
         return $r ?: null;
+    }*/
+
+    public function getStage(int $fileId, int $stage): ?array
+    {
+        $pdo = Database::pdo();
+        $st = $pdo->prepare(
+            'SELECT * FROM measurement_reviews
+         WHERE measurement_file_id = :f AND stage = :s
+         ORDER BY id DESC
+         LIMIT 1'
+        );
+        $st->execute([':f' => $fileId, ':s' => $stage]);
+        $r = $st->fetch();
+        return $r ?: null;
     }
+
 
     public function decide(int $fileId, int $stage, string $decision, string $notes): void
     {

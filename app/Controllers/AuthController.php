@@ -19,7 +19,7 @@ final class AuthController extends Controller
     }
 
     /** POST: autenticação local (email + senha) */
-    public function loginPost(): void
+    /*public function loginPost(): void
     {
         $email = trim((string)($_POST['email'] ?? ''));
         $pass  = (string)($_POST['password'] ?? '');
@@ -44,6 +44,53 @@ final class AuthController extends Controller
             'entra_object_id' => (string)($user['entra_object_id'] ?? ''),
             'ms_linked'       => (int)($user['ms_linked'] ?? 0),
         ];
+
+        // >>> AJUSTE: reforça ms_linked a partir da tabela oauth_tokens (persiste após logout)
+        $tokRepo = new OAuthTokenRepository();
+        if ($tokRepo->isConnected((int)$user['id'], 'microsoft')) {
+            $_SESSION['user']['ms_linked'] = 1;
+        }
+
+        $repo->updateLastLogin((int)$user['id']);
+
+        session_write_close();
+        header('Location: /operations');
+        exit;
+    }*/
+
+    public function loginPost(): void
+    {
+        $email = trim((string)($_POST['email'] ?? ''));
+        $pass  = (string)($_POST['password'] ?? '');
+
+        $repo = new UserRepository();
+        $user = $repo->verifyLocalLogin($email, $pass);
+
+        if (!$user) {
+            $_SESSION['flash_error'] = 'Credenciais inválidas.';
+            session_write_close();
+            header('Location: /auth/local');
+            exit;
+        }
+
+        // Regenera ID p/ evitar fixation e grava dados
+        session_regenerate_id(true);
+
+        // highlight-start
+        // ===== CORREÇÃO APLICADA AQUI =====
+        // 1. Salva o ID do usuário na chave esperada pela aplicação.
+        $_SESSION['user_id'] = (int)$user['id'];
+
+        // 2. Salva o restante dos dados em um array separado, como antes.
+        $_SESSION['user'] = [
+            'id'              => (int)$user['id'],
+            'name'            => (string)$user['name'],
+            'email'           => (string)$user['email'],
+            'role'            => (string)($user['role'] ?? 'user'),
+            'entra_object_id' => (string)($user['entra_object_id'] ?? ''),
+            'ms_linked'       => (int)($user['ms_linked'] ?? 0),
+        ];
+        // highlight-end
 
         // >>> AJUSTE: reforça ms_linked a partir da tabela oauth_tokens (persiste após logout)
         $tokRepo = new OAuthTokenRepository();

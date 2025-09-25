@@ -86,6 +86,36 @@ final class MeasurementController extends Controller
         return (int)($row['reviewer_user_id'] ?? $row['reviewer_id'] ?? 0);
     }
 
+    /** Verifica se o usuário pode revisar esta etapa */
+    private function userCanReview(int $uid, int $expectedReviewerId): bool
+    {
+        $userRepo = new UserRepository();
+        $user = $userRepo->findBasic($uid);
+
+        if (!$user) {
+            return false;
+        }
+
+        $isAdmin = ($user['role'] ?? '') === 'admin';
+
+        return $uid === $expectedReviewerId || $isAdmin;
+    }
+
+    /** Verifica se o usuário pode revisar esta etapa */
+    /*private function userCanReview(int $uid, int $expectedReviewerId): bool
+    {
+        $userRepo = new UserRepository();
+        $user = $userRepo->find($uid); // usa find, não findBasic
+
+        if (!$user) {
+            return false;
+        }
+
+        $isAdmin = ($user['role'] ?? '') === 'admin';
+        error_log("[userCanReview] uid={$uid}, expected={$expectedReviewerId}, role=" . ($user['role'] ?? ''));
+        return $uid === $expectedReviewerId || $isAdmin;
+    }*/
+
     /** Atualiza status da operação e registra no histórico. */
     private function setStatus(int $opId, string $status, string $note = ''): void
     {
@@ -277,6 +307,125 @@ final class MeasurementController extends Controller
     }
 
     /** GET: Mostra formulário de análise (estágio N) */
+    /*public function reviewForm(int $fileId, int $stage = 1): void
+    {
+        $pdo = \Core\Database::pdo();
+
+        // arquivo
+        $st = $pdo->prepare('SELECT * FROM measurement_files WHERE id = :id LIMIT 1');
+        $st->execute([':id' => $fileId]);
+        $file = $st->fetch();
+        if (!$file) {
+            http_response_code(404);
+            echo 'Arquivo não encontrado';
+            return;
+        }
+
+        // Se a medição já estiver concluída, vá para o histórico
+        if (isset($file['status']) && mb_strtolower((string)$file['status'], 'UTF-8') === mb_strtolower('Concluído', 'UTF-8')) {
+            header('Location: /measurements/' . (int)$file['id'] . '/history');
+            exit;
+        }
+
+        $mrRepo = new MeasurementReviewRepository();
+        $mr = $mrRepo->getStage($fileId, $stage);
+
+        // Fallback: cria a etapa se estiver faltando
+        if (!$mr) {
+            $opSt = $pdo->prepare('SELECT * FROM operations WHERE id = :op');
+            $opSt->execute([':op' => (int)$file['operation_id']]);
+            $op = $opSt->fetch();
+
+            $reviewerId = null;
+            if ($stage === 1) {
+                $reviewerId = (int)($op['responsible_user_id'] ?? 0);
+            } elseif ($stage === 2) {
+                $reviewerId = (int)($op['stage2_reviewer_user_id'] ?? 0);
+            } elseif ($stage === 3) {
+                $reviewerId = (int)($op['stage3_reviewer_user_id'] ?? 0);
+            } elseif ($stage === 4) {
+                $reviewerId = (int)($op['payment_manager_user_id'] ?? 0);
+            }
+
+            /*if (!$reviewerId) {
+                $reviewerId = (int)($pdo->query('SELECT id FROM users WHERE active = 1 ORDER BY id ASC LIMIT 1')->fetchColumn() ?: 0);
+            }*/
+
+    /*if ($reviewerId) {
+                $mrRepo->createStage($fileId, $stage, $reviewerId);
+                $mr = $mrRepo->getStage($fileId, $stage);
+            } else {
+                http_response_code(400);
+                echo 'Etapa não encontrada: defina o revisor da etapa na operação.';
+                return;
+            }
+        }
+
+
+
+        // ==== PERMISSÃO DE QUEM PODE ANALISAR ====
+        $opId   = (int)$file['operation_id'];
+        $opRepo = new OperationRepository();
+        $op     = $opRepo->find($opId);
+
+        $uid        = $this->currentUserId();
+        $requiredSt = $this->requiredStatusForStage($stage);
+
+        // leitura-apenas quando operação = Completo OU arquivo = Concluído
+        $readOnly = $this->statusEquals((string)($op['status'] ?? ''), self::ST_COMPLETO)
+            || (isset($file['status']) && mb_strtolower((string)$file['status'], 'UTF-8') === mb_strtolower('Concluído', 'UTF-8'));
+
+        if (!$readOnly && $uid) {
+            if ($requiredSt && !$this->statusEquals((string)($op['status'] ?? ''), $requiredSt)) {
+                http_response_code(403);
+                echo 'Esta etapa não está disponível no status atual da operação.';
+                return;
+            }
+
+            /*$expectedReviewerId = $this->reviewerIdFrom((array)$mr);
+            if ($uid !== $expectedReviewerId) {
+                if (strtolower((string)($_ENV['APP_DEBUG'] ?? 'false')) === 'true') {
+                    error_log(sprintf(
+                        '[reviewForm] Bloqueado: uid=%s, expected=%s, stage=%d, file=%d',
+                        var_export($uid, true),
+                        var_export($expectedReviewerId, true),
+                        (int)$stage,
+                        (int)$fileId
+                    ));
+                    echo 'Você não é o revisor desta etapa. (debug uid=' . (int)$uid . ' expected=' . (int)$expectedReviewerId . ')';
+                } else {
+                    echo 'Você não é o revisor desta etapa.';
+                }
+                http_response_code(403);
+                return;
+            }*/
+
+    /*$expectedReviewerId = $this->reviewerIdFrom((array)$mr);
+            if (!$this->userCanReview($uid, $expectedReviewerId)) {
+                if (strtolower((string)($_ENV['APP_DEBUG'] ?? 'false')) === 'true') {
+                    error_log(sprintf(
+                        '[reviewForm] Bloqueado: uid=%s, expected=%s, stage=%d, file=%d',
+                        var_export($uid, true),
+                        var_export($expectedReviewerId, true),
+                        (int)$stage,
+                        (int)$fileId
+                    ));
+                    echo 'Você não tem permissão para revisar esta etapa. (debug uid='
+                        . (int)$uid . ' expected=' . (int)$expectedReviewerId . ')';
+                } else {
+                    echo 'Você não tem permissão para revisar esta etapa.';
+                }
+                http_response_code(403);
+                return;
+            }
+
+            if (isset($mr['status']) && $mr['status'] !== 'pending') {
+                http_response_code(403);
+                echo 'Esta etapa já foi analisada. Aguarde as próximas validações.';
+                return;
+            }
+        }*/
+
     public function reviewForm(int $fileId, int $stage = 1): void
     {
         $pdo = \Core\Database::pdo();
@@ -317,10 +466,6 @@ final class MeasurementController extends Controller
                 $reviewerId = (int)($op['payment_manager_user_id'] ?? 0);
             }
 
-            if (!$reviewerId) {
-                $reviewerId = (int)($pdo->query('SELECT id FROM users WHERE active = 1 ORDER BY id ASC LIMIT 1')->fetchColumn() ?: 0);
-            }
-
             if ($reviewerId) {
                 $mrRepo->createStage($fileId, $stage, $reviewerId);
                 $mr = $mrRepo->getStage($fileId, $stage);
@@ -343,7 +488,17 @@ final class MeasurementController extends Controller
         $readOnly = $this->statusEquals((string)($op['status'] ?? ''), self::ST_COMPLETO)
             || (isset($file['status']) && mb_strtolower((string)$file['status'], 'UTF-8') === mb_strtolower('Concluído', 'UTF-8'));
 
-        if (!$readOnly && $uid) {
+        // highlight-start
+        // ===== ALTERAÇÃO DE SEGURANÇA =====
+        // Se não for apenas leitura, um usuário VÁLIDO é obrigatório.
+        if (!$readOnly) {
+            if (!$uid) {
+                http_response_code(401); // 401 Unauthorized
+                echo 'Acesso não autorizado. Faça login para visualizar esta página.';
+                return;
+            }
+
+            // A partir daqui, o código pode assumir que $uid é um inteiro válido.
             if ($requiredSt && !$this->statusEquals((string)($op['status'] ?? ''), $requiredSt)) {
                 http_response_code(403);
                 echo 'Esta etapa não está disponível no status atual da operação.';
@@ -351,7 +506,7 @@ final class MeasurementController extends Controller
             }
 
             $expectedReviewerId = $this->reviewerIdFrom((array)$mr);
-            if ($uid !== $expectedReviewerId) {
+            if (!$this->userCanReview($uid, $expectedReviewerId)) {
                 if (strtolower((string)($_ENV['APP_DEBUG'] ?? 'false')) === 'true') {
                     error_log(sprintf(
                         '[reviewForm] Bloqueado: uid=%s, expected=%s, stage=%d, file=%d',
@@ -360,9 +515,10 @@ final class MeasurementController extends Controller
                         (int)$stage,
                         (int)$fileId
                     ));
-                    echo 'Você não é o revisor desta etapa. (debug uid=' . (int)$uid . ' expected=' . (int)$expectedReviewerId . ')';
+                    echo 'Você não tem permissão para revisar esta etapa. (debug uid='
+                        . (int)$uid . ' expected=' . (int)$expectedReviewerId . ')';
                 } else {
-                    echo 'Você não é o revisor desta etapa.';
+                    echo 'Você não tem permissão para revisar esta etapa.';
                 }
                 http_response_code(403);
                 return;
@@ -374,6 +530,7 @@ final class MeasurementController extends Controller
                 return;
             }
         }
+        // highlight-end
 
         // revisões anteriores
         $prev = $mrRepo->listByFile($fileId);
@@ -396,8 +553,29 @@ final class MeasurementController extends Controller
         ]);
     }
 
+    /*// revisões anteriores
+        $prev = $mrRepo->listByFile($fileId);
+
+        // Pagamentos (somente na 4ª etapa)
+        $payments = [];
+        if ($stage === 4 && class_exists(\App\Repositories\MeasurementPaymentRepository::class)) {
+            $pRepo = new \App\Repositories\MeasurementPaymentRepository();
+            $payments = $pRepo->listByMeasurement($fileId);
+        }
+
+        $this->view('measurements/review', [
+            'file'        => $file,
+            'review'      => $mr,
+            'operationId' => (int)$file['operation_id'],
+            'stage'       => $stage,
+            'previous'    => $prev,
+            'payments'    => $payments,
+            'readOnly'    => $readOnly,
+        ]);
+    }*/
+
     /** POST: Recebe decisão (Aprovar/Reprovar) com observações */
-    public function reviewSubmit(int $fileId, int $stage = 1): void
+    /*public function reviewSubmit(int $fileId, int $stage = 1): void
     {
         $decision = ($_POST['decision'] ?? '') === 'approve' ? 'approved' : 'rejected';
         $notes    = trim((string)($_POST['notes'] ?? ''));
@@ -424,10 +602,10 @@ final class MeasurementController extends Controller
                 } elseif ($stage === 4) {
                     $reviewerId = (int)($opTmp['payment_manager_user_id'] ?? 0);
                 }
-                if (!$reviewerId) {
+                /*if (!$reviewerId) {
                     $reviewerId = (int)($pdo->query('SELECT id FROM users WHERE active = 1 ORDER BY id ASC LIMIT 1')->fetchColumn() ?: 0);
-                }
-                if ($reviewerId) {
+                }*/
+    /*if ($reviewerId) {
                     $mrRepo->createStage($fileId, $stage, $reviewerId);
                     $stageRow = $mrRepo->getStage($fileId, $stage);
                 }
@@ -460,7 +638,7 @@ final class MeasurementController extends Controller
                 return;
             }
 
-            $expectedReviewerId = $this->reviewerIdFrom((array)$stageRow);
+            /*$expectedReviewerId = $this->reviewerIdFrom((array)$stageRow);
             if ($uid !== $expectedReviewerId) {
                 if (strtolower((string)($_ENV['APP_DEBUG'] ?? 'false')) === 'true') {
                     error_log(sprintf(
@@ -476,6 +654,25 @@ final class MeasurementController extends Controller
                 }
                 http_response_code(403);
                 return;
+            }*/
+
+    /*$expectedReviewerId = $this->reviewerIdFrom((array)$stageRow);
+            if (!$this->userCanReview($uid, $expectedReviewerId)) {
+                if (strtolower((string)($_ENV['APP_DEBUG'] ?? 'false')) === 'true') {
+                    error_log(sprintf(
+                        '[reviewSubmit] Bloqueado: uid=%s, expected=%s, stage=%d, file=%d',
+                        var_export($uid, true),
+                        var_export($expectedReviewerId, true),
+                        (int)$stage,
+                        (int)$fileId
+                    ));
+                    echo 'Você não tem permissão para revisar esta etapa. (debug uid='
+                        . (int)$uid . ' expected=' . (int)$expectedReviewerId . ')';
+                } else {
+                    echo 'Você não tem permissão para revisar esta etapa.';
+                }
+                http_response_code(403);
+                return;
             }
 
             if (isset($stageRow['status']) && $stageRow['status'] !== 'pending') {
@@ -486,6 +683,237 @@ final class MeasurementController extends Controller
         }
 
         // ======= AQUI: não sobrescreve mais as notas =======
+        $this->appendDecisionNotesAndSetStatus($fileId, $stage, $decision, $notes, $uid);
+
+        // descobre a operação
+        $opId = (int)$pdo->query('SELECT operation_id FROM measurement_files WHERE id=' . (int)$fileId)->fetchColumn();
+        if (!$opId) {
+            http_response_code(500);
+            echo 'Operação não encontrada';
+            return;
+        }
+        $op = $opRepo->find($opId);
+
+        if ($decision === 'rejected') {
+            // === Reprovação: volta status e reabre etapa anterior ===
+            switch ($stage) {
+                case 1:
+                    $newStatus = self::ST_REJEITADO;
+                    $note      = "Medição reprovada na 1ª validação.";
+                    break;
+                case 2:
+                    $newStatus = self::ST_ENGENHARIA;
+                    $note      = "Medição reprovada na 2ª validação. Retorno para Engenharia.";
+                    break;
+                case 3:
+                    $newStatus = self::ST_GESTAO;
+                    $note      = "Medição reprovada na 3ª validação. Retorno para Gestão.";
+                    break;
+                case 4:
+                    $newStatus = self::ST_JURIDICO;
+                    $note      = "Medição reprovada na 4ª validação. Retorno para Jurídico.";
+                    break;
+                default:
+                    $newStatus = self::ST_PAGAMENTO;
+                    $note      = "Medição reprovada na {$stage}ª validação. Retorno para Financeiro/Pagamento.";
+                    break;
+            }
+
+            // Atualiza status da OP e registra log
+            $this->setStatus($opId, $newStatus, $note);
+            $ohRepo->log($opId, 'measurement', $note . ' Observações: ' . $notes);
+
+            // Reabrir a etapa anterior (mantendo a recusa nesta etapa)
+            if ($stage > 1) {
+                $prevStage = $stage - 1;
+                $pdo->prepare(
+                    'UPDATE measurement_reviews
+                        SET status = "pending", reviewed_at = NULL
+                      WHERE measurement_file_id = :f AND stage = :s'
+                )->execute([':f' => $fileId, ':s' => $prevStage]);
+            }
+
+            header('Location: /operations/' . $opId);
+            exit;
+        }
+
+        // ===== Aprovado neste estágio =====
+        if ($stage === 1) {
+            // Garante que a ETAPA 2 exista e esteja PENDENTE (mesmo que já tenha ficado "rejected" antes)
+            $stage2UserId = (int)($op['stage2_reviewer_user_id'] ?? 0);
+            if ($stage2UserId) {
+                $this->ensureStagePending($fileId, 2, $stage2UserId);
+                if ($u = $userRepo->findBasic($stage2UserId)) {
+                    $base = rtrim($_ENV['APP_URL'] ?? '', '/');
+                    $link = $base . '/measurements/' . $fileId . '/review/2';
+                    $subject = $this->mailSubject($op, '2ª validação — nova medição');
+                    $html = '<p>Olá, ' . $this->esc($u['name']) . '</p>'
+                        . '<p>Há uma nova medição para análise na <strong>2ª validação: Gestão</strong> da operação '
+                        . '<strong>#' . $opId . ($op['code'] ? ' (' . $this->esc($op['code']) . ')' : '') . '</strong> '
+                        . '(' . $this->esc((string)$op['title']) . ').</p>'
+                        . '<p><a href="' . $this->esc($link) . '">Clique aqui para analisar</a>.</p>';
+                    $this->smtpSend($u['email'], $u['name'], $subject, $html, $opId);
+                }
+            }
+            $this->setStatus($opId, self::ST_GESTAO, 'Aprovada na 1ª validação; próxima etapa: Gestão.');
+            $ohRepo->log($opId, 'measurement', 'Medição aprovada na 1ª validação. Observações: ' . $notes);
+        } elseif ($stage === 2) {
+            // Garante ETAPA 3 pendente
+            $stage3UserId = (int)($op['stage3_reviewer_user_id'] ?? 0);
+            if ($stage3UserId) {
+                $this->ensureStagePending($fileId, 3, $stage3UserId);
+                if ($u = $userRepo->findBasic($stage3UserId)) {
+                    $base = rtrim($_ENV['APP_URL'] ?? '', '/');
+                    $link = $base . '/measurements/' . $fileId . '/review/3';
+                    $subject = $this->mailSubject($op, '3ª validação — nova medição');
+                    $html = '<p>Olá, ' . $this->esc($u['name']) . '</p>'
+                        . '<p>Há uma nova medição para análise na <strong>3ª validação: Jurídico</strong> da operação '
+                        . '<strong>#' . $opId . ($op['code'] ? ' (' . $this->esc($op['code']) . ')' : '') . '</strong> '
+                        . '(' . $this->esc((string)$op['title']) . ').</p>'
+                        . '<p><a href="' . $this->esc($link) . '">Clique aqui para analisar</a>.</p>';
+                    $this->smtpSend($u['email'], $u['name'], $subject, $html, $opId);
+                }
+            }
+            $this->setStatus($opId, self::ST_JURIDICO, 'Aprovada na 2ª validação; próxima etapa: Jurídico.');
+            $ohRepo->log($opId, 'measurement', 'Medição aprovada na 2ª validação. Observações: ' . $notes);
+        } elseif ($stage === 3) {
+            // Garante ETAPA 4 pendente
+            $pmId = (int)($op['payment_manager_user_id'] ?? 0);
+            if ($pmId) {
+                $this->ensureStagePending($fileId, 4, $pmId);
+                if ($u = $userRepo->findBasic($pmId)) {
+                    $base = rtrim($_ENV['APP_URL'] ?? '', '/');
+                    $link = $base . '/measurements/' . $fileId . '/review/4';
+                    $subject = $this->mailSubject($op, 'Medição aprovada — registrar pagamentos (4ª etapa)');
+                    $html = '<p>Olá, ' . $this->esc($u['name']) . '</p>'
+                        . '<p>A medição da operação <strong>#' . $opId
+                        . ($op['code'] ? ' (' . $this->esc($op['code']) . ')' : '')
+                        . '</strong> (' . $this->esc((string)$op['title'])
+                        . ') foi aprovada nas três validações.</p>'
+                        . '<p>Acesse a <strong>4ª etapa</strong> para registrar/verificar pagamentos: '
+                        . '<a href="' . $this->esc($link) . '">Abrir 4ª validação</a>.</p>';
+                    $this->smtpSend($u['email'], $u['name'], $subject, $html, $opId);
+                }
+            }
+            $this->setStatus($opId, self::ST_PAGAMENTO, 'Aprovada na 3ª validação; próxima etapa: Pagamento.');
+            $ohRepo->log($opId, 'measurement', 'Medição aprovada na 3ª validação. Observações: ' . $notes);
+        } elseif ($stage === 4) {
+            // 4ª etapa (gestão de pagamentos)
+            $hasPayments = false;
+            if (class_exists(\App\Repositories\MeasurementPaymentRepository::class)) {
+                $pRepo = new \App\Repositories\MeasurementPaymentRepository();
+                $hasPayments = count($pRepo->listByMeasurement($fileId)) > 0;
+            }
+
+            if ($decision === 'approved') {
+                if (!$hasPayments) {
+                    http_response_code(400);
+                    echo 'Cadastre ao menos um pagamento antes de aprovar a 4ª etapa.';
+                    return;
+                }
+                $this->setStatus($opId, self::ST_FINALIZAR, 'Pagamentos verificados; pronto para finalizar.');
+                $ohRepo->log($opId, 'payment_checked', '4ª etapa aprovada: pagamentos registrados/verificados. Observações: ' . $notes);
+            }
+        }
+
+        header('Location: /operations/' . $opId);
+        exit;
+    }*/
+
+    public function reviewSubmit(int $fileId, int $stage = 1): void
+    {
+        $decision = ($_POST['decision'] ?? '') === 'approve' ? 'approved' : 'rejected';
+        $notes    = trim((string)($_POST['notes'] ?? ''));
+
+        $mrRepo   = new MeasurementReviewRepository();
+        $opRepo   = new OperationRepository();
+        $ohRepo   = new OperationHistoryRepository();
+        $userRepo = new UserRepository();
+        $pdo      = \Core\Database::pdo();
+
+        // Se a etapa não existir, cria
+        $stageRow = $mrRepo->getStage($fileId, $stage);
+        if (!$stageRow) {
+            $opIdTmp = (int)$pdo->query('SELECT operation_id FROM measurement_files WHERE id=' . (int)$fileId)->fetchColumn();
+            if ($opIdTmp) {
+                $opTmp = $opRepo->find($opIdTmp);
+                $reviewerId = null;
+                if ($stage === 1) {
+                    $reviewerId = (int)($opTmp['responsible_user_id'] ?? 0);
+                } elseif ($stage === 2) {
+                    $reviewerId = (int)($opTmp['stage2_reviewer_user_id'] ?? 0);
+                } elseif ($stage === 3) {
+                    $reviewerId = (int)($opTmp['stage3_reviewer_user_id'] ?? 0);
+                } elseif ($stage === 4) {
+                    $reviewerId = (int)($opTmp['payment_manager_user_id'] ?? 0);
+                }
+                if ($reviewerId) {
+                    $mrRepo->createStage($fileId, $stage, $reviewerId);
+                    $stageRow = $mrRepo->getStage($fileId, $stage);
+                }
+            }
+        }
+
+        if (!$stageRow) {
+            http_response_code(400);
+            echo 'Etapa não encontrada';
+            return;
+        }
+
+        // ==== PERMISSÕES ====
+        $uid        = $this->currentUserId();
+        $opIdCheck  = (int)$pdo->query('SELECT operation_id FROM measurement_files WHERE id=' . (int)$fileId)->fetchColumn();
+        $opCheck    = (new OperationRepository())->find($opIdCheck);
+        $requiredSt = $this->requiredStatusForStage($stage);
+
+        $fileStatus = (string)\Core\Database::pdo()->query('SELECT status FROM measurement_files WHERE id=' . (int)$fileId)->fetchColumn();
+        if ($this->statusEquals((string)($opCheck['status'] ?? ''), self::ST_COMPLETO) || mb_strtolower($fileStatus, 'UTF-8') === mb_strtolower('Concluído', 'UTF-8')) {
+            http_response_code(403);
+            echo 'Medição finalizada — somente leitura.';
+            return;
+        }
+
+        // highlight-start
+        // ===== ALTERAÇÃO DE SEGURANÇA =====
+        // Um usuário VÁLIDO é obrigatório para submeter uma decisão.
+        if (!$uid) {
+            http_response_code(401); // 401 Unauthorized
+            echo 'Acesso não autorizado. Faça login para realizar esta ação.';
+            return;
+        }
+
+        // A partir daqui, o código pode assumir que $uid é um inteiro válido.
+        if ($requiredSt && !$this->statusEquals((string)($opCheck['status'] ?? ''), $requiredSt)) {
+            http_response_code(403);
+            echo 'Esta etapa não está disponível no status atual da operação.';
+            return;
+        }
+
+        $expectedReviewerId = $this->reviewerIdFrom((array)$stageRow);
+        if (!$this->userCanReview($uid, $expectedReviewerId)) {
+            if (strtolower((string)($_ENV['APP_DEBUG'] ?? 'false')) === 'true') {
+                error_log(sprintf(
+                    '[reviewSubmit] Bloqueado: uid=%s, expected=%s, stage=%d, file=%d',
+                    var_export($uid, true),
+                    var_export($expectedReviewerId, true),
+                    (int)$stage,
+                    (int)$fileId
+                ));
+                echo 'Você não tem permissão para revisar esta etapa. (debug uid='
+                    . (int)$uid . ' expected=' . (int)$expectedReviewerId . ')';
+            } else {
+                echo 'Você não tem permissão para revisar esta etapa.';
+            }
+            http_response_code(403);
+            return;
+        }
+
+        if (isset($stageRow['status']) && $stageRow['status'] !== 'pending') {
+            http_response_code(403);
+            echo 'Esta etapa já foi analisada. Aguarde as próximas validações.';
+            return;
+        }
+        // highlight-end
         $this->appendDecisionNotesAndSetStatus($fileId, $stage, $decision, $notes, $uid);
 
         // descobre a operação

@@ -285,7 +285,7 @@ include __DIR__ . '/../layout/header.php';
                                             <?php if ($isDone): ?>
                                                 <span class="ops-badge ops-badge--success"><?= htmlspecialchars($fileStatus ?: 'Concluído') ?></span>
                                             <?php else: ?>
-                                                <span class="ops-badge ops-badge--warning"><?= htmlspecialchars($fileStatus ?: 'Pendente') ?></span>
+                                                <span class="ops-badge ops-badge--warning"><?= htmlspecialchars($fileStatus ?: 'Em análise') ?></span>
                                             <?php endif; ?>
                                             <?php if ($canAnalyze): ?>
                                                 <a class="btn btn-sm btn-brand ms-2" href="<?= htmlspecialchars($analyzeUrl) ?>">

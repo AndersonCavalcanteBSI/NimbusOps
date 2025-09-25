@@ -290,13 +290,22 @@ include __DIR__ . '/../layout/header.php';
                                 $fileStatus = (string)($f['file_status'] ?? '');
                                 $isDone     = (mb_strtolower($fileStatus, 'UTF-8') === mb_strtolower('Concluído', 'UTF-8'));
 
+                                // --- NOVO: detectar rejeição (via status do arquivo OU status da operação)
+                                /*$fileStatusNorm = mb_strtolower($fileStatus, 'UTF-8');
+                                $isRejected = in_array($fileStatusNorm, ['rejeitado', 'recusado'], true)
+                                    || in_array($opStatusNorm, ['rejeitado', 'recusado'], true);*/
+
+                                $fileStatusNorm = mb_strtolower($fileStatus, 'UTF-8');
+                                $isFileRejected = in_array($fileStatusNorm, ['rejeitado', 'recusado'], true);
+                                $isOpRejected   = in_array($opStatusNorm,   ['rejeitado', 'recusado'], true);
+
                                 // link para analisar a próxima etapa (1..4)
                                 $nextStage  = (int)($f['next_stage'] ?? 1);
                                 $analyzeUrl = !empty($f['review_url'])
                                     ? (string)$f['review_url']
                                     : '/measurements/' . (int)$f['id'] . '/review/' . $nextStage;
 
-                                // Permissão para ANALISAR (somente até a 4ª)
+                                // Permissão para ANALISAR (somente até a 4ª e quando NÃO rejeitado)
                                 $expectedReviewerId = match ($nextStage) {
                                     1       => (int)($op['responsible_user_id']        ?? 0),
                                     2       => (int)($op['stage2_reviewer_user_id']     ?? 0),
@@ -304,10 +313,19 @@ include __DIR__ . '/../layout/header.php';
                                     4       => (int)($op['payment_manager_user_id']     ?? 0),
                                     default => 0,
                                 };
-                                $canAnalyze = !$isDone && $nextStage >= 1 && $nextStage <= 4
+                                /*$canAnalyze = !$isDone && !$isRejected && $nextStage >= 1 && $nextStage <= 4
+                                    && ($isAdmin || ($uid > 0 && $uid === $expectedReviewerId));*/
+
+                                $canAnalyze = !$isDone
+                                    && !$isOpRejected
+                                    && $nextStage >= 1 && $nextStage <= 4
                                     && ($isAdmin || ($uid > 0 && $uid === $expectedReviewerId));
 
                                 // Permissão para FINALIZAR: operação na etapa Finalização + usuário finalizador (ou admin)
+                                /*$canFinalize = !$isDone && !$isRejected
+                                    && in_array($opStatusNorm, ['finalizar', 'finalizacao'], true)
+                                    && ($isAdmin || ($uid > 0 && $uid === $finalizerId));*/
+
                                 $canFinalize = !$isDone
                                     && in_array($opStatusNorm, ['finalizar', 'finalizacao'], true)
                                     && ($isAdmin || ($uid > 0 && $uid === $finalizerId));
@@ -338,11 +356,16 @@ include __DIR__ . '/../layout/header.php';
                                         </div>
                                         <!-- Status + ações -->
                                         <div class="mf-actions ms-auto d-flex align-items-center gap-2">
-                                            <!--<span class="<?= $statusClass ?>"><?= htmlspecialchars($statusText) ?></span>-->
                                             <?php if ($isDone): ?>
-                                                <span class="ops-badge ops-badge--success"><?= htmlspecialchars($fileStatus ?: 'Concluído') ?></span>
+                                                <span class="ops-badge ops-badge--success">
+                                                    <?= htmlspecialchars($fileStatus !== '' ? $fileStatus : 'Concluído') ?>
+                                                </span>
+                                            <?php elseif ($isFileRejected): ?>
+                                                <span class="ops-badge ops-badge--danger">Rejeitado</span>
                                             <?php else: ?>
-                                                <span class="ops-badge ops-badge--warning"><?= htmlspecialchars($fileStatus ?: 'Em análise') ?></span>
+                                                <span class="ops-badge ops-badge--warning">
+                                                    <?= htmlspecialchars($fileStatus !== '' ? $fileStatus : 'Em análise') ?>
+                                                </span>
                                             <?php endif; ?>
                                             <?php if ($canAnalyze): ?>
                                                 <a class="btn btn-sm btn-brand ms-2" href="<?= htmlspecialchars($analyzeUrl) ?>">

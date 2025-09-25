@@ -925,7 +925,7 @@ final class MeasurementController extends Controller
         }
         $op = $opRepo->find($opId);
 
-        if ($decision === 'rejected') {
+        /*if ($decision === 'rejected') {
             // === Reprovação: volta status e reabre etapa anterior ===
             switch ($stage) {
                 case 1:
@@ -951,6 +951,24 @@ final class MeasurementController extends Controller
             }
 
             // Atualiza status da OP e registra log
+            /*$this->setStatus($opId, $newStatus, $note);
+            $ohRepo->log($opId, 'measurement', $note . ' Observações: ' . $notes);
+
+            // Reabrir a etapa anterior (mantendo a recusa nesta etapa)
+            /*if ($stage > 1) {
+                $prevStage = $stage - 1;
+                $pdo->prepare(
+                    'UPDATE measurement_reviews
+                        SET status = "pending", reviewed_at = NULL
+                      WHERE measurement_file_id = :f AND stage = :s'
+                )->execute([':f' => $fileId, ':s' => $prevStage]);
+            }*/
+
+        // >>> NOVO: marca o ARQUIVO como Rejeitado
+        /*$pdo->prepare('UPDATE measurement_files SET status = :s WHERE id = :id')
+                ->execute([':s' => 'Rejeitado', ':id' => $fileId]);
+
+            // Atualiza status da OP e registra log
             $this->setStatus($opId, $newStatus, $note);
             $ohRepo->log($opId, 'measurement', $note . ' Observações: ' . $notes);
 
@@ -959,8 +977,58 @@ final class MeasurementController extends Controller
                 $prevStage = $stage - 1;
                 $pdo->prepare(
                     'UPDATE measurement_reviews
-                        SET status = "pending", reviewed_at = NULL
-                      WHERE measurement_file_id = :f AND stage = :s'
+            SET status = "pending", reviewed_at = NULL
+          WHERE measurement_file_id = :f AND stage = :s'
+                )->execute([':f' => $fileId, ':s' => $prevStage]);
+            }
+
+            header('Location: /operations/' . $opId);
+            exit;
+        }*/
+
+        if ($decision === 'rejected') {
+            // Marca o arquivo como Rejeitado
+            $pdo->prepare('UPDATE measurement_files SET status = :s WHERE id = :id')
+                ->execute([':s' => 'Rejeitado', ':id' => $fileId]);
+
+            if ($stage === 1) {
+                // 1ª etapa: operação inteira rejeitada
+                $newStatus = self::ST_REJEITADO;
+                $note      = "Medição reprovada na 1ª validação (Engenharia).";
+
+                $this->setStatus($opId, $newStatus, $note);
+                $ohRepo->log($opId, 'measurement', $note . ' Observações: ' . $notes);
+            } else {
+                // Demais etapas: volta para a anterior
+                switch ($stage) {
+                    case 2:
+                        $newStatus = self::ST_ENGENHARIA;
+                        $note      = "Medição reprovada na 2ª validação. Retorno para Engenharia.";
+                        break;
+                    case 3:
+                        $newStatus = self::ST_GESTAO;
+                        $note      = "Medição reprovada na 3ª validação. Retorno para Gestão.";
+                        break;
+                    case 4:
+                        $newStatus = self::ST_JURIDICO;
+                        $note      = "Medição reprovada na 4ª validação. Retorno para Jurídico.";
+                        break;
+                    default:
+                        $newStatus = self::ST_PAGAMENTO;
+                        $note      = "Medição reprovada na {$stage}ª validação. Retorno para Financeiro/Pagamento.";
+                        break;
+                }
+
+                // Atualiza status da operação e log
+                $this->setStatus($opId, $newStatus, $note);
+                $ohRepo->log($opId, 'measurement', $note . ' Observações: ' . $notes);
+
+                // Reabre a etapa anterior
+                $prevStage = $stage - 1;
+                $pdo->prepare(
+                    'UPDATE measurement_reviews
+                SET status = "pending", reviewed_at = NULL
+              WHERE measurement_file_id = :f AND stage = :s'
                 )->execute([':f' => $fileId, ':s' => $prevStage]);
             }
 

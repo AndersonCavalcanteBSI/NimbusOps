@@ -354,6 +354,13 @@ final class OperationController extends Controller
     /** Form de edição (mesma view, com $op preenchida) */
     public function edit(int $id): void
     {
+        // (opcional) exige admin
+        if (!$this->isAdmin($this->currentUserId())) {
+            http_response_code(403);
+            echo 'Acesso negado.';
+            return;
+        }
+
         $op = $this->repo->find($id);
         if (!$op) {
             http_response_code(404);
@@ -362,15 +369,36 @@ final class OperationController extends Controller
         }
 
         $users = (new UserRepository())->allActive();
-        $this->view('operations/create', [
+
+        // CSRF simples (one-time)
+        $csrf = bin2hex(random_bytes(16));
+        $_SESSION['csrf_token'] = $csrf;
+
+        $this->view('operations/edit', [
             'users' => $users,
-            'op'    => $op,   // a view deve pré-selecionar os usuários com base nisso
+            'op'    => $op,
+            'csrf'  => $csrf,
         ]);
     }
 
     /** Salva apenas os IDs dos destinatários/validadores */
     public function update(int $id): void
     {
+        if (!$this->isAdmin($this->currentUserId())) {
+            http_response_code(403);
+            echo 'Acesso negado.';
+            return;
+        }
+
+        $sent = (string)($_POST['csrf_token'] ?? '');
+        $good = (string)($_SESSION['csrf_token'] ?? '');
+        unset($_SESSION['csrf_token']);
+        if ($sent === '' || $good === '' || !hash_equals($good, $sent)) {
+            http_response_code(419);
+            echo 'Sessão expirada. Recarregue a página e tente novamente.';
+            return;
+        }
+
         $op = $this->repo->find($id);
         if (!$op) {
             http_response_code(404);
@@ -378,47 +406,79 @@ final class OperationController extends Controller
             return;
         }
 
-        $data = [
+        // -------- Campos editáveis --------
+        $title = trim((string)($_POST['title'] ?? ''));
+        $next  = trim((string)($_POST['next_measurement_at'] ?? ''));
+
+        if ($title === '') {
+            http_response_code(422);
+            echo 'Preencha o título.';
+            return;
+        }
+
+        // Normaliza próxima medição (YYYY-MM-DD ou vazio)
+        $nextDb = null;
+        if ($next !== '') {
+            $ts = strtotime($next);
+            $nextDb = $ts ? date('Y-m-d', $ts) : null;
+        }
+
+        // -------- Responsáveis por etapa --------
+        $dataRecipients = [
             'responsible_user_id'       => (int)($_POST['responsible_user_id'] ?? 0) ?: null,
             'stage2_reviewer_user_id'   => (int)($_POST['stage2_reviewer_user_id'] ?? 0) ?: null,
             'stage3_reviewer_user_id'   => (int)($_POST['stage3_reviewer_user_id'] ?? 0) ?: null,
             'payment_manager_user_id'   => (int)($_POST['payment_manager_user_id'] ?? 0) ?: null,
             'payment_finalizer_user_id' => (int)($_POST['payment_finalizer_user_id'] ?? 0) ?: null,
-
-            // manter coluna antiga nula quando usamos recipients múltiplos
             'rejection_notify_user_id'  => null,
         ];
 
-        // reprovação múltipla no update
+        // Reprovação múltipla (até 2)
         $rejIds = array_map('intval', (array)($_POST['rejection_notify_user_ids'] ?? []));
         $rejIds = array_values(array_unique(array_filter($rejIds)));
         $rejIds = array_slice($rejIds, 0, 2);
 
         try {
-            $this->repo->updateRecipients($id, $data);
-
-            if (!empty($rejIds)) {
-                if (class_exists(\App\Repositories\OperationNotifyRepository::class)) {
-                    (new \App\Repositories\OperationNotifyRepository())->replaceRecipients($id, $rejIds);
-                } else {
-                    $this->repo->updateRecipients($id, [
-                        'rejection_notify_user_id' => $rejIds[0] ?? null,
-                    ]);
-                }
+            // 1) ATENÇÃO: atualiza apenas os campos permitidos (NÃO altera code/status)
+            if (method_exists($this->repo, 'updateCore')) {
+                $this->repo->updateCore($id, [
+                    'title'               => $title,
+                    'next_measurement_at' => $nextDb,
+                ]);
             } else {
-                if (class_exists(\App\Repositories\OperationNotifyRepository::class)) {
-                    (new \App\Repositories\OperationNotifyRepository())->replaceRecipients($id, []);
-                } else {
-                    $this->repo->updateRecipients($id, ['rejection_notify_user_id' => null]);
-                }
+                // Fallback direto em SQL caso não tenha updateCore() no repo
+                $pdo = \Core\Database::pdo();
+                $sql = 'UPDATE operations
+                       SET title = :t,
+                           next_measurement_at = :n
+                     WHERE id = :id';
+                $pdo->prepare($sql)->execute([
+                    ':t'  => $title,
+                    ':n'  => $nextDb,
+                    ':id' => $id,
+                ]);
+            }
+
+            // 2) destinatários/validadores
+            $this->repo->updateRecipients($id, $dataRecipients);
+
+            // 3) lista múltipla de notificação de recusa
+            if (class_exists(\App\Repositories\OperationNotifyRepository::class)) {
+                (new \App\Repositories\OperationNotifyRepository())->replaceRecipients($id, $rejIds);
+            } else {
+                $this->repo->updateRecipients($id, [
+                    'rejection_notify_user_id' => $rejIds[0] ?? null,
+                ]);
             }
 
             if (class_exists(OperationHistoryRepository::class)) {
                 (new OperationHistoryRepository())->log($id, 'recipients_updated', 'Destinatários/validadores atualizados.');
+                (new OperationHistoryRepository())->log($id, 'updated', 'Dados editáveis da operação atualizados.');
             }
-        } catch (\Throwable) {
+        } catch (\Throwable $e) {
+            error_log('[operation_update_error] ' . $e->getMessage());
             http_response_code(500);
-            echo 'Falha ao atualizar destinatários.';
+            echo 'Falha ao atualizar a operação.';
             return;
         }
 

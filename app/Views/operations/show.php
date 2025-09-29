@@ -290,50 +290,83 @@ include __DIR__ . '/../layout/header.php';
                                 $fileStatus = (string)($f['file_status'] ?? '');
                                 $isDone     = (mb_strtolower($fileStatus, 'UTF-8') === mb_strtolower('Concluído', 'UTF-8'));
 
-                                // --- NOVO: detectar rejeição (via status do arquivo OU status da operação)
-                                /*$fileStatusNorm = mb_strtolower($fileStatus, 'UTF-8');
-                                $isRejected = in_array($fileStatusNorm, ['rejeitado', 'recusado'], true)
-                                    || in_array($opStatusNorm, ['rejeitado', 'recusado'], true);*/
-
+                                // Normalizações
                                 $fileStatusNorm = mb_strtolower($fileStatus, 'UTF-8');
                                 $isFileRejected = in_array($fileStatusNorm, ['rejeitado', 'recusado'], true);
                                 $isOpRejected   = in_array($opStatusNorm,   ['rejeitado', 'recusado'], true);
 
-                                // link para analisar a próxima etapa (1..4)
+                                // --- NOVO: selo da 1ª etapa = arquivo REJEITADO + closed_at preenchido
+                                $closedAtRaw = $f['closed_at'] ?? null;
+                                $closedAtTs  = $closedAtRaw ? strtotime((string)$closedAtRaw) : false;
+                                $hasSealStage1Rejection = $isFileRejected && !empty($closedAtRaw); // << aqui está o selo
+
+                                // Continua calculando a última etapa rejeitada (para compatibilidade)
+                                $lastRejectedStage = null;
+                                $lastRejectedAt    = 0;
+                                if (!empty($histList)) {
+                                    foreach ($histList as $r) {
+                                        $st = strtolower((string)($r['status'] ?? ''));
+                                        if ($st === 'rejected') {
+                                            $ts = 0;
+                                            if (!empty($r['reviewed_at'])) {
+                                                $ts = strtotime((string)$r['reviewed_at']);
+                                            } elseif (!empty($r['created_at'])) {
+                                                $ts = strtotime((string)$r['created_at']);
+                                            }
+                                            if ($ts === false) $ts = 0;
+                                            if ($ts >= $lastRejectedAt) {
+                                                $lastRejectedAt    = $ts;
+                                                $lastRejectedStage = (int)($r['stage'] ?? 0);
+                                            }
+                                        }
+                                    }
+                                }
+
+                                // --- BLOQUEIO: se houver selo de recusa (closed_at) então a recusa foi na 1ª etapa e NUNCA reabre
+                                $blockedByStage1Rejection = $hasSealStage1Rejection;
+
+                                // Próxima etapa/analisar
                                 $nextStage  = (int)($f['next_stage'] ?? 1);
                                 $analyzeUrl = !empty($f['review_url'])
                                     ? (string)$f['review_url']
                                     : '/measurements/' . (int)$f['id'] . '/review/' . $nextStage;
 
-                                // Permissão para ANALISAR (somente até a 4ª e quando NÃO rejeitado)
+                                // Permissão para analisar
                                 $expectedReviewerId = match ($nextStage) {
-                                    1       => (int)($op['responsible_user_id']        ?? 0),
-                                    2       => (int)($op['stage2_reviewer_user_id']     ?? 0),
-                                    3       => (int)($op['stage3_reviewer_user_id']     ?? 0),
-                                    4       => (int)($op['payment_manager_user_id']     ?? 0),
+                                    1       => (int)($op['responsible_user_id']    ?? 0),
+                                    2       => (int)($op['stage2_reviewer_user_id'] ?? 0),
+                                    3       => (int)($op['stage3_reviewer_user_id'] ?? 0),
+                                    4       => (int)($op['payment_manager_user_id'] ?? 0),
                                     default => 0,
                                 };
-                                /*$canAnalyze = !$isDone && !$isRejected && $nextStage >= 1 && $nextStage <= 4
-                                    && ($isAdmin || ($uid > 0 && $uid === $expectedReviewerId));*/
 
                                 $canAnalyze = !$isDone
-                                    && !$isOpRejected
                                     && $nextStage >= 1 && $nextStage <= 4
+                                    && !$isOpRejected
+                                    && !$blockedByStage1Rejection   // << não permite reabrir se selo ativo
                                     && ($isAdmin || ($uid > 0 && $uid === $expectedReviewerId));
 
-                                // Permissão para FINALIZAR: operação na etapa Finalização + usuário finalizador (ou admin)
-                                /*$canFinalize = !$isDone && !$isRejected
+                                $isFinalizationStage = in_array($opStatusNorm, ['finalizar', 'finalizacao'], true);
+                                // Recalcula finalização preferencialmente na fase final
+                                $canFinalize = !$isDone
+                                    && !$isFileRejected
+                                    && $isFinalizationStage
+                                    && ($isAdmin || ($uid > 0 && $uid === $finalizerId));
+
+                                /*$canFinalize = !$isDone
+                                    && !$isFileRejected
                                     && in_array($opStatusNorm, ['finalizar', 'finalizacao'], true)
                                     && ($isAdmin || ($uid > 0 && $uid === $finalizerId));*/
-
-                                $canFinalize = !$isDone
-                                    && in_array($opStatusNorm, ['finalizar', 'finalizacao'], true)
-                                    && ($isAdmin || ($uid > 0 && $uid === $finalizerId));
 
                                 // Se pode finalizar, não mostra Analisar
                                 if ($canFinalize) {
                                     $canAnalyze = false;
                                 }
+
+                                if ($isFinalizationStage) {
+                                    $canAnalyze = false;
+                                }
+
                                 $finalizeUrl = '/measurements/' . (int)$f['id'] . '/finalize';
                                 ?>
                                 <div class="list-group-item px-0">
@@ -360,6 +393,8 @@ include __DIR__ . '/../layout/header.php';
                                                 <span class="ops-badge ops-badge--success">
                                                     <?= htmlspecialchars($fileStatus !== '' ? $fileStatus : 'Concluído') ?>
                                                 </span>
+                                            <?php elseif ($hasSealStage1Rejection): ?>
+                                                <span class="ops-badge ops-badge--danger">Recusado</span>
                                             <?php elseif ($isFileRejected): ?>
                                                 <span class="ops-badge ops-badge--danger">Rejeitado</span>
                                             <?php else: ?>

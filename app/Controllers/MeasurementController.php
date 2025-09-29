@@ -986,7 +986,7 @@ final class MeasurementController extends Controller
             exit;
         }*/
 
-        if ($decision === 'rejected') {
+        /*if ($decision === 'rejected') {
             // Marca o arquivo como Rejeitado
             $pdo->prepare('UPDATE measurement_files SET status = :s WHERE id = :id')
                 ->execute([':s' => 'Rejeitado', ':id' => $fileId]);
@@ -1032,6 +1032,65 @@ final class MeasurementController extends Controller
                 )->execute([':f' => $fileId, ':s' => $prevStage]);
             }
 
+            $this->sendRejectionEmails($op, $opId, $fileId, $stage, $notes);
+            header('Location: /operations/' . $opId);
+            exit;
+        }*/
+
+        if ($decision === 'rejected') {
+            if ($stage === 1) {
+                // 1ª etapa: arquivo rejeitado e fechado
+                $pdo->prepare('UPDATE measurement_files 
+                          SET status = :s, closed_at = NOW() 
+                        WHERE id = :id')
+                    ->execute([':s' => 'Rejeitado', ':id' => $fileId]);
+
+                // 1ª etapa: operação inteira rejeitada
+                $newStatus = self::ST_REJEITADO;
+                $note      = "Medição reprovada na 1ª validação (Engenharia).";
+
+                $this->setStatus($opId, $newStatus, $note);
+                $ohRepo->log($opId, 'measurement', $note . ' Observações: ' . $notes);
+            } else {
+                // Demais etapas: arquivo rejeitado mas não fechado (pode voltar)
+                $pdo->prepare('UPDATE measurement_files 
+                          SET status = :s 
+                        WHERE id = :id')
+                    ->execute([':s' => 'Rejeitado', ':id' => $fileId]);
+
+                switch ($stage) {
+                    case 2:
+                        $newStatus = self::ST_ENGENHARIA;
+                        $note      = "Medição reprovada na 2ª validação. Retorno para Engenharia.";
+                        break;
+                    case 3:
+                        $newStatus = self::ST_GESTAO;
+                        $note      = "Medição reprovada na 3ª validação. Retorno para Gestão.";
+                        break;
+                    case 4:
+                        $newStatus = self::ST_JURIDICO;
+                        $note      = "Medição reprovada na 4ª validação. Retorno para Jurídico.";
+                        break;
+                    default:
+                        $newStatus = self::ST_PAGAMENTO;
+                        $note      = "Medição reprovada na {$stage}ª validação. Retorno para Financeiro/Pagamento.";
+                        break;
+                }
+
+                // Atualiza status da operação e log
+                $this->setStatus($opId, $newStatus, $note);
+                $ohRepo->log($opId, 'measurement', $note . ' Observações: ' . $notes);
+
+                // Reabre a etapa anterior
+                $prevStage = $stage - 1;
+                $pdo->prepare(
+                    'UPDATE measurement_reviews
+                SET status = "pending", reviewed_at = NULL
+              WHERE measurement_file_id = :f AND stage = :s'
+                )->execute([':f' => $fileId, ':s' => $prevStage]);
+            }
+
+            $this->sendRejectionEmails($op, $opId, $fileId, $stage, $notes);
             header('Location: /operations/' . $opId);
             exit;
         }
@@ -1439,5 +1498,206 @@ final class MeasurementController extends Controller
             'reviews'     => $reviews,
             'payments'    => $payments,
         ]);
+    }
+
+    /** Quem é o revisor configurado para cada etapa (1..4) */
+    private function getStageReviewerId(array $op, int $stage): int
+    {
+        return match ($stage) {
+            1 => (int)($op['responsible_user_id'] ?? 0),
+            2 => (int)($op['stage2_reviewer_user_id'] ?? 0),
+            3 => (int)($op['stage3_reviewer_user_id'] ?? 0),
+            4 => (int)($op['payment_manager_user_id'] ?? 0),
+            default => 0,
+        };
+    }
+
+    /**
+     * Lista os destinatários “fixos” para RECUSA.
+     * Se você já tem uma tabela/feature para “notificar sempre”, ajuste aqui.
+     * Exemplo abaixo usa OperationNotifyRepository (seu import já está presente).
+     */
+    /*private function listRejectionSubscribers(int $opId): array
+    {
+        $subs = [];
+        if (class_exists(OperationNotifyRepository::class)) {
+            $repo = new OperationNotifyRepository();
+            // ajuste os filtros conforme seu repositório expõe (ex.: type='rejection'/'all')
+            $rows = $repo->listByOperation($opId, 'rejection'); // <- adapte se necessário
+            foreach ((array)$rows as $r) {
+                $email = trim((string)($r['email'] ?? ''));
+                $name  = trim((string)($r['name'] ?? ''));
+                if ($email !== '') {
+                    $subs[] = ['email' => $email, 'name' => ($name !== '' ? $name : null)];
+                }
+            }
+        }
+        return $subs;
+    }*/
+
+    /*private function listRejectionSubscribers(int $opId): array
+    {
+        $pdo  = \Core\Database::pdo();
+        $subs = [];
+
+        try {
+            // Ajuste o SQL conforme o seu schema real.
+            $sql = 'SELECT name, email
+                  FROM operation_rejection_notify_users
+                 WHERE operation_id = :op
+                   AND (type = :t OR type IS NULL OR type = "")
+                   ' . ($this->columnExists($pdo, 'operation_rejection_notify_users', 'active') ? 'AND active = 1' : '');
+
+            $st = $pdo->prepare($sql);
+            $st->execute([':op' => $opId, ':t' => 'rejection']);
+            $rows = $st->fetchAll() ?: [];
+
+            foreach ($rows as $r) {
+                $email = trim((string)($r['email'] ?? ''));
+                $name  = trim((string)($r['name'] ?? ''));
+                if ($email !== '') {
+                    $subs[] = ['email' => $email, 'name' => ($name !== '' ? $name : null)];
+                }
+            }
+        } catch (\Throwable $e) {
+            // Se a tabela não existir ou der erro, seguimos sem travar.
+            error_log('[listRejectionSubscribers] ' . $e->getMessage());
+        }
+
+        // Extras via .env (opcional): REJECTION_BCC="a@x.com, b@y.com"
+        $extra = trim((string)($_ENV['REJECTION_BCC'] ?? ''));
+        if ($extra !== '') {
+            foreach (preg_split('/[,;]+/', $extra) as $raw) {
+                $email = trim($raw);
+                if ($email !== '') {
+                    $subs[] = ['email' => $email, 'name' => null];
+                }
+            }
+        }
+
+        // Remove duplicados por e-mail
+        $uniq = [];
+        $out  = [];
+        foreach ($subs as $s) {
+            $k = strtolower($s['email']);
+            if (!isset($uniq[$k])) {
+                $uniq[$k] = true;
+                $out[] = $s;
+            }
+        }
+        return $out;
+    }*/
+
+    private function listRejectionSubscribers(int $opId): array
+    {
+        $pdo  = \Core\Database::pdo();
+        $subs = [];
+
+        try {
+            // Junta assinaturas -> usuários para pegar nome/e-mail
+            $sql = 'SELECT u.name, u.email
+                  FROM operation_rejection_notify_users r
+                  JOIN users u ON u.id = r.user_id
+                 WHERE r.operation_id = :op'
+                // se users tiver coluna "active", aplica filtro; se não tiver, ignora
+                . ($this->columnExists($pdo, 'users', 'active') ? ' AND u.active = 1' : '');
+
+            $st = $pdo->prepare($sql);
+            $st->execute([':op' => $opId]);
+            $rows = $st->fetchAll() ?: [];
+
+            foreach ($rows as $r) {
+                $email = trim((string)($r['email'] ?? ''));
+                $name  = trim((string)($r['name'] ?? ''));
+                if ($email !== '') {
+                    $subs[] = ['email' => $email, 'name' => ($name !== '' ? $name : null)];
+                }
+            }
+        } catch (\Throwable $e) {
+            error_log('[listRejectionSubscribers] ' . $e->getMessage());
+        }
+
+        // Extras via .env (opcional)
+        $extra = trim((string)($_ENV['REJECTION_BCC'] ?? ''));
+        if ($extra !== '') {
+            foreach (preg_split('/[,;]+/', $extra) as $raw) {
+                $email = trim($raw);
+                if ($email !== '') {
+                    $subs[] = ['email' => $email, 'name' => null];
+                }
+            }
+        }
+
+        // dedup por e-mail
+        $uniq = [];
+        $out  = [];
+        foreach ($subs as $s) {
+            $k = strtolower($s['email']);
+            if (!isset($uniq[$k])) {
+                $uniq[$k] = true;
+                $out[] = $s;
+            }
+        }
+        return $out;
+    }
+
+    private function columnExists(\PDO $pdo, string $table, string $column): bool
+    {
+        try {
+            $stmt = $pdo->query("SHOW COLUMNS FROM `{$table}` LIKE " . $pdo->quote($column));
+            return (bool)$stmt->fetch();
+        } catch (\Throwable $e) {
+            return false;
+        }
+    }
+
+    /** Envia e-mail de recusa para os “assinantes” + (opcional) revisor da etapa anterior */
+    private function sendRejectionEmails(array $op, int $opId, int $fileId, int $stage, string $notes): void
+    {
+        $base = rtrim($_ENV['APP_URL'] ?? '', '/');
+
+        // 1) sempre notificar os “assinantes” de recusa
+        $subs = $this->listRejectionSubscribers($opId);
+        if ($subs) {
+            $subject = $this->mailSubject($op, "Medição recusada — etapa {$stage}ª");
+            $html  = '<p>Uma medição foi <strong>recusada</strong> na operação '
+                . '<strong>#' . (int)$opId . ($op['code'] ? ' (' . $this->esc((string)$op['code']) . ')' : '') . '</strong>'
+                . ' — ' . $this->esc((string)$op['title']) . '.</p>';
+            $html .= '<p><strong>Etapa:</strong> ' . (int)$stage . 'ª</p>';
+            if ($notes !== '') {
+                $html .= '<p><strong>Observações:</strong><br>' . nl2br($this->esc($notes)) . '</p>';
+            }
+            $html .= '<p><a href="' . $this->esc($base . '/measurements/' . $fileId . '/history') . '">Abrir histórico da medição</a></p>';
+
+            foreach ($subs as $s) {
+                $this->smtpSend($s['email'], $s['name'] ?? null, $subject, $html, $opId);
+            }
+        }
+
+        // 2) se a recusa NÃO for na 1ª etapa, avisar o revisor da etapa anterior com link de ação
+        if ($stage > 1) {
+            $prevStage = $stage - 1;
+            $prevReviewerId = $this->getStageReviewerId($op, $prevStage);
+            if ($prevReviewerId > 0) {
+                $u = (new UserRepository())->findBasic($prevReviewerId);
+                if ($u && !empty($u['email'])) {
+                    $subject = $this->mailSubject($op, "Ação necessária — medição voltou para a {$prevStage}ª etapa");
+                    $link    = $base . '/measurements/' . $fileId . '/review/' . $prevStage;
+
+                    $html  = '<p>Olá, ' . $this->esc((string)$u['name']) . '.</p>';
+                    $html .= '<p>A medição da operação <strong>#' . (int)$opId
+                        . ($op['code'] ? ' (' . $this->esc((string)$op['code']) . ')' : '')
+                        . '</strong> — ' . $this->esc((string)$op['title'])
+                        . ' — foi <strong>recusada na ' . (int)$stage . 'ª etapa</strong> e '
+                        . 'retornou para a <strong>' . (int)$prevStage . 'ª etapa</strong>.</p>';
+                    if ($notes !== '') {
+                        $html .= '<p><strong>Observações da recusa:</strong><br>' . nl2br($this->esc($notes)) . '</p>';
+                    }
+                    $html .= '<p><a href="' . $this->esc($link) . '">Reanalisar agora</a></p>';
+
+                    $this->smtpSend($u['email'], $u['name'], $subject, $html, $opId);
+                }
+            }
+        }
     }
 }

@@ -5,20 +5,20 @@ $pageCss   = ['/assets/ops.css']; // CSS da página
 include __DIR__ . '/../layout/header.php';
 ?>
 
-<section class="ops-hero ops-hero--plain ops-hero--compact">
-    <div class="container d-flex align-items-center justify-content-between">
-        <div>
-            <h1 class="ops-hero__title mb-0">Operações</h1>
-            <p class="ops-hero__subtitle">Acompanhe o status das operações e o calendário de medições</p>
-        </div>
-        <?php if ($role === 'admin'): ?>
-            <a href="/operations/create" class="btn btn-brand btn-pill d-inline-flex align-items-center gap-2 mb-3">
+<section class="ops-hero ops-hero--clean">
+    <div class="container">
+        <div class="ops-hero__stack d-flex justify-content-between align-items-start">
+            <div>
+                <h1 class="ops-hero__title">Operações</h1>
+                <p class="ops-hero__subtitle">Acompanhe o status das operações e o calendário de medições</p>
+            </div>
+            <a href="/operations/create" class="btn btn-brand btn-pill d-inline-flex align-items-center gap-2">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
                     <path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
                 </svg>
                 Nova operação
             </a>
-        <?php endif; ?>
+        </div>
     </div>
 </section>
 

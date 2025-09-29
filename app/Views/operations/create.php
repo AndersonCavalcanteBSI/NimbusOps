@@ -15,18 +15,20 @@ $opts = function (array $users) {
 ?>
 
 <!-- Barra superior enxuta -->
-<section class="ops-hero ops-hero--plain ops-hero--compact">
-    <div class="container d-flex align-items-center justify-content-between">
-        <div>
-            <h1 class="ops-hero__title mb-0">Nova Operação</h1>
-            <p class="ops-hero__subtitle">Cadastre os dados e defina os responsáveis por cada etapa</p>
+<section class="ops-hero ops-hero--clean">
+    <div class="container">
+        <div class="ops-hero__stack d-flex justify-content-between align-items-start">
+            <div>
+                <h1 class="ops-hero__title">Nova Operação</h1>
+                <p class="ops-hero__subtitle">Cadastre os dados e defina os responsáveis por cada etapa</p>
+            </div>
+            <a href="/operations" class="btn btn-brand d-inline-flex align-items-center gap-2 mb-3">
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                    <path d="M10.5 13L5 8l5.5-5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                </svg>
+                Voltar
+            </a>
         </div>
-        <a href="/operations" class="btn btn-brand d-inline-flex align-items-center gap-2 mb-3">
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-                <path d="M10.5 13L5 8l5.5-5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
-            </svg>
-            Voltar
-        </a>
     </div>
 </section>
 

@@ -29,31 +29,19 @@ include __DIR__ . '/../layout/header.php';
     <form class="card ops-filter shadow-sm mb-4" method="get">
         <div class="card-body">
             <div class="row g-3 align-items-end">
-                <div class="col-lg-6">
+                <div class="col-lg-8">
                     <label class="form-label ops-label">Buscar</label>
-                    <input type="text" name="q" value="<?= htmlspecialchars($filters['q'] ?? '') ?>" class="form-control ops-input" placeholder="Nome, código ou termos da operação">
+                    <input type="text" name="q" value="<?= htmlspecialchars($filters['q'] ?? '') ?>" class="form-control ops-input" placeholder="Nome ou código da operação">
                 </div>
 
-                <div class="col-lg-2">
+                <div class="col-lg-4">
                     <label class="form-label ops-label">Status</label>
                     <select name="status" class="form-select ops-input">
                         <option value="">Todos</option>
-                        <?php foreach (['draft', 'active', 'settled', 'canceled', 'pending', 'engenharia', 'gestão', 'jurídico', 'pagamento', 'finalização', 'completo'] as $s): ?>
+                        <?php foreach (['completo', 'engenharia', 'finalização', 'gestão', 'jurídico', 'pagamento', 'rejeitado'] as $s): ?>
                             <option value="<?= $s ?>" <?= (($filters['status'] ?? '') === $s) ? 'selected' : '' ?>><?= ucfirst($s) ?></option>
                         <?php endforeach; ?>
                     </select>
-                </div>
-
-                <div class="col-lg-2">
-                    <label class="form-label ops-label">De</label>
-                    <input type="date" name="from" value="<?= htmlspecialchars($filters['from'] ?? '') ?>" class="form-control ops-input">
-                </div>
-
-                <div class="col-lg-2">
-                    <label class="form-label ops-label">Até</label>
-                    <div class="d-flex gap-2">
-                        <input type="date" name="to" value="<?= htmlspecialchars($filters['to'] ?? '') ?>" class="form-control ops-input">
-                    </div>
                 </div>
             </div>
 
@@ -88,7 +76,6 @@ include __DIR__ . '/../layout/header.php';
                     <tr>
                         <th><a class="ops-th-link" href="?<?= $qs('title') ?>">Nome</a></th>
                         <th class="d-none d-md-table-cell"><a class="ops-th-link" href="?<?= $qs('status') ?>">Status</a></th>
-                        <th><a class="ops-th-link" href="?<?= $qs('due_date') ?>">Próxima medição</a></th>
                         <th class="d-none d-lg-table-cell"><a class="ops-th-link" href="?<?= $qs('last_measurement_at') ?>">Última medição</a></th>
                         <th class="text-end">Ações</th>
                     </tr>
@@ -144,8 +131,6 @@ include __DIR__ . '/../layout/header.php';
                                         <span class="ops-badge <?= $sysBadge ?>"><?= htmlspecialchars(ucfirst($statusLabel)) ?></span>
                                     <?php endif; ?>
                                 </td>
-
-                                <td><?= $fmt($row['due_date'] ?? null) ?></td>
 
                                 <td class="d-none d-lg-table-cell"><?= $fmt($row['last_measurement_at'] ?? null) ?></td>
 

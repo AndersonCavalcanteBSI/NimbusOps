@@ -254,6 +254,7 @@
 .op-hist__badge--warning{ background:#fff5e6; color:#8a4a00; border-color:#ffe7c2; }
 .op-hist__badge--success{ background:#eaf7f0; color:#165f3e; border-color:#d6f0e1; }
 .op-hist__badge--danger{ background:#fdecec; color:#7c1a1a; border-color:#f9d3d3; }
+.op-hist__badge--update{ background:#eaf7f0; color:#208b5b; border-color:#d6f0e1; }
 
 /* footer */
 .op-hist .modal-footer{

@@ -23,19 +23,31 @@ final class OperationRepository
         $where = [];
         $params = [];
 
+        // --- BUSCA (code/title/issuer) ---
+        // Use placeholders distintos para cada coluna para evitar HY093
         if ($q = trim((string)($filters['q'] ?? ''))) {
-            $where[] = '(o.code LIKE :q OR o.title LIKE :q)';
-            $params[':q'] = "%$q%";
+            // escapa % _ e \ no valor do LIKE
+            $needle = str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], $q);
+            $like   = "%{$needle}%";
+
+            // ESCAPE precisa de aspas simples e duas barras no PHP para virar uma '\'
+            $escape = " ESCAPE '\\\\' ";
+
+            $where[] = "(o.code   LIKE :q1{$escape} OR o.title  LIKE :q2{$escape} OR o.issuer LIKE :q3{$escape})";
+
+            $params[':q1'] = $like;
+            $params[':q2'] = $like;
+            $params[':q3'] = $like;
         }
         if ($status = ($filters['status'] ?? '')) {
             $where[] = 'o.status = :status';
             $params[':status'] = $status;
         }
-        if ($from = ($filters['from'] ?? '')) {
+        if (($from = trim((string)($filters['from'] ?? ''))) !== '') {
             $where[] = 'o.due_date >= :from';
             $params[':from'] = $from;
         }
-        if ($to = ($filters['to'] ?? '')) {
+        if (($to = trim((string)($filters['to'] ?? ''))) !== '') {
             $where[] = 'o.due_date <= :to';
             $params[':to'] = $to;
         }

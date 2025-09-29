@@ -131,28 +131,32 @@ include __DIR__ . '/../layout/header.php';
                         // Helper de classe do badge por ação
                         $badgeFor = function (string $action): string {
                             return match (strtolower($action)) {
-                                'created'            => 'op-hist__badge--neutral',
-                                'status_changed'     => 'op-hist__badge--info',
-                                'measurement'        => 'op-hist__badge--accent',
-                                'payment_recorded'   => 'op-hist__badge--warning',
-                                'payment_checked'    => 'op-hist__badge--success',
-                                'payment_finalized'  => 'op-hist__badge--success',
-                                'mail_sent'          => 'op-hist__badge--neutral',
-                                'mail_error'         => 'op-hist__badge--danger',
-                                default              => 'op-hist__badge--neutral',
+                                'created'               => 'op-hist__badge--neutral',
+                                'status_changed'        => 'op-hist__badge--info',
+                                'measurement'           => 'op-hist__badge--accent',
+                                'payment_recorded'      => 'op-hist__badge--warning',
+                                'payment_checked'       => 'op-hist__badge--success',
+                                'payment_finalized'     => 'op-hist__badge--success',
+                                'mail_sent'             => 'op-hist__badge--neutral',
+                                'mail_error'            => 'op-hist__badge--danger',
+                                'updated'               => 'op-hist__badge--update',
+                                'recipients_updated'    => 'op-hist__badge--success',
+                                default                 => 'op-hist__badge--neutral',
                             };
                         };
 
                         // Novo: mapa de rótulos PT-BR para cada action
                         $labelFor = [
-                            'created'            => 'Criado',
-                            'status_changed'     => 'Status Alterado',
-                            'measurement'        => 'Validação',
-                            'payment_recorded'   => 'Pagamento Registrado',
-                            'payment_checked'    => 'Pagamento Verificado',
-                            'payment_finalized'  => 'Pagamento Concluído', // <- se quiser o typo original, troque aqui
-                            'mail_sent'          => 'E-mail Enviado',
-                            'mail_error'         => 'Falha no Envio do E-mail',
+                            'created'               => 'Criado',
+                            'status_changed'        => 'Status Alterado',
+                            'measurement'           => 'Validação',
+                            'payment_recorded'      => 'Pagamento Registrado',
+                            'payment_checked'       => 'Pagamento Verificado',
+                            'payment_finalized'     => 'Pagamento Concluído', // <- se quiser o typo original, troque aqui
+                            'mail_sent'             => 'E-mail Enviado',
+                            'mail_error'            => 'Falha no Envio do E-mail',
+                            'updated'               => 'Atualização',
+                            'recipients_updated'    => 'Destinatários Atualizados',
                         ];
                         ?>
 

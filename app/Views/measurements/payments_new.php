@@ -191,13 +191,16 @@ $fmt = function (?string $d): string {
         // máscara/parse de moeda PT-BR
         function parseBRL(str) {
             if (!str) return 0;
+            // aceita "R$ ", pontos, vírgula etc.
             const s = String(str).replace(/\./g, '').replace(',', '.').replace(/[^\d.-]/g, '');
             const n = parseFloat(s);
             return isNaN(n) ? 0 : n;
         }
 
         function fmtBRL(n) {
-            return 'R$ ' + Number(n).toFixed(2).replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+            return 'R$ ' + Number(n).toFixed(2)
+                .replace('.', ',')
+                .replace(/\B(?=(\d{3})+(?!\d))/g, '.');
         }
 
         function updateTotal() {
@@ -210,21 +213,34 @@ $fmt = function (?string $d): string {
 
         // máscara ao digitar
         function maskOnInput(e) {
-            // mantém somente dígitos
-            let v = e.target.value.replace(/[^\d]/g, '');
+            let v = e.target.value.replace(/[^\d]/g, ''); // só dígitos
             if (v === '') {
                 e.target.value = '';
                 updateTotal();
                 return;
             }
-            // força 2 casas
+
+            // sempre 2 casas
             while (v.length < 3) v = '0' + v;
-            const intPart = v.slice(0, -2);
+
+            // separa inteiro/decimal
+            let intPart = v.slice(0, -2);
             const decPart = v.slice(-2);
+
+            // remove zeros à esquerda mantendo um zero se tudo for zero
+            intPart = intPart.replace(/^0+(?=\d)/, '');
+            if (intPart === '') intPart = '0';
+
             // milhar com ponto + vírgula decimal
             const intFmt = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
-            e.target.value = intFmt + ',' + decPart;
+            e.target.value = 'R$ ' + intFmt + ',' + decPart;
+
             updateTotal();
+        }
+
+        function maskOnBlur(e) {
+            const n = parseBRL(e.target.value);
+            e.target.value = n ? fmtBRL(n) : '';
         }
 
         // delega remover linha

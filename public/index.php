@@ -139,6 +139,10 @@ $router->post('/users/{id}',         $adminOnly(fn(string $id) => (new UserContr
 // Vínculo Microsoft (desvincular)
 $router->get('/auth/microsoft/unlink', fn() => (new AuthController())->unlinkMicrosoft());
 
+// Editar operação
+$router->get('/operations/{id}/edit', $adminOnly(fn(string $id) => (new OperationController())->edit((int)$id)));
+$router->post('/operations/{id}',      $adminOnly(fn(string $id) => (new OperationController())->update((int)$id)));
+
 // Compat antigo GET "analyzed" -> review/1
 $router->get('/measurements/{id}/analyzed', function (string $id) {
     header('Location: /measurements/' . (int)$id . '/review/1');

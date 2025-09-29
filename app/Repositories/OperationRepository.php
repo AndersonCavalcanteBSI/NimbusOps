@@ -151,10 +151,13 @@ final class OperationRepository
         $st->execute([
             ':code'   => ($code !== '' ? $code : null),
             ':title'  => (string)$data['title'],
-            ':status' => (string)($data['status'] ?? 'draft'),
-            ':issuer' => (($data['issuer'] ?? '') !== '' ? (string)$data['issuer'] : null),
+
+            // ⬇️ Não força 'draft': deixa NULL quando não vier para o DEFAULT do banco aplicar
+            ':status' => (($data['status'] ?? '') !== '' ? (string)$data['status'] : null),
+
+            ':issuer'   => (($data['issuer']   ?? '') !== '' ? (string)$data['issuer']   : null),
             ':due_date' => (($data['due_date'] ?? '') !== '' ? (string)$data['due_date'] : null),
-            ':amount'   => (($data['amount'] ?? '') !== '' ? (float)$data['amount'] : null),
+            ':amount'   => (($data['amount']   ?? '') !== '' ? (float)$data['amount']    : null),
 
             ':u1' => $this->asId($data['responsible_user_id']       ?? null),
             ':u2' => $this->asId($data['stage2_reviewer_user_id']   ?? null),
@@ -165,6 +168,60 @@ final class OperationRepository
         ]);
 
         return (int)$pdo->lastInsertId();
+    }
+
+    /**
+     * Atualiza campos principais da operação (whitelist).
+     * Retorna true/false conforme sucesso.
+     */
+    public function update(int $id, array $data): bool
+    {
+        $pdo = Database::pdo();
+
+        // Whitelist de colunas editáveis
+        $allowed = [
+            'title',
+            'code',
+            'status',
+            'issuer',
+            'due_date',
+            'amount',
+            'responsible_user_id',
+            'stage2_reviewer_user_id',
+            'stage3_reviewer_user_id',
+            'payment_manager_user_id',
+            'payment_finalizer_user_id',
+            'next_measurement_at',
+        ];
+
+        $set = [];
+        $params = [':id' => $id];
+
+        foreach ($allowed as $col) {
+            if (!array_key_exists($col, $data)) continue;
+
+            $val = $data[$col];
+
+            // Normalizações rápidas
+            if (in_array($col, ['responsible_user_id', 'stage2_reviewer_user_id', 'stage3_reviewer_user_id', 'payment_manager_user_id', 'payment_finalizer_user_id'], true)) {
+                $val = $this->asId($val);
+            } elseif ($col === 'amount') {
+                $val = ($val === '' ? null : (float)$val);
+            } elseif ($col === 'due_date' || $col === 'next_measurement_at') {
+                $val = ($val === '' ? null : (string)$val);
+            } else {
+                $val = ($val === '' ? null : $val);
+            }
+
+            $set[] = "{$col} = :{$col}";
+            $params[":{$col}"] = $val;
+        }
+
+        if (!$set) return true; // nada a atualizar
+
+        $sql = 'UPDATE operations SET ' . implode(', ', $set) . ' WHERE id = :id';
+        $st  = $pdo->prepare($sql);
+        return $st->execute($params);
     }
 
     /** Atualiza apenas os destinatários/validadores por fase */

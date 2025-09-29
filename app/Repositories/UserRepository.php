@@ -23,7 +23,7 @@ final class UserRepository
         return $r ?: null;
     }
 
-    /** Lista simples de ativos */
+    /** Lista simples de ativos (campos básicos) */
     public function allActive(): array
     {
         $pdo = Database::pdo();
@@ -31,8 +31,24 @@ final class UserRepository
         return $st->fetchAll() ?: [];
     }
 
-    /** Busca ativo por e-mail (sem coluna extra; normaliza no SELECT) */
-    /*public function findByEmailActive(string $email): ?array
+    /**
+     * (Opcional) Lista básica de usuários para combos/selects.
+     * @param bool $onlyActive Se true, retorna somente ativos; caso contrário, todos.
+     * @return array<int, array{id:int, name:string}>
+     */
+    public function listAllBasic(bool $onlyActive = true): array
+    {
+        $pdo = Database::pdo();
+        if ($onlyActive) {
+            $st = $pdo->query('SELECT id, name FROM users WHERE active = 1 ORDER BY name ASC');
+        } else {
+            $st = $pdo->query('SELECT id, name FROM users ORDER BY name ASC');
+        }
+        return $st->fetchAll() ?: [];
+    }
+
+    /** Busca ativo por e-mail (case-insensitive) */
+    public function findByEmailActive(string $email): ?array
     {
         $pdo = Database::pdo();
         $st = $pdo->prepare(
@@ -42,15 +58,6 @@ final class UserRepository
               LIMIT 1'
         );
         $st->execute([':e' => $this->norm($email)]);
-        $row = $st->fetch();
-        return $row ?: null;
-    }*/
-
-    public function findByEmailActive(string $email): ?array
-    {
-        $pdo = Database::pdo();
-        $st = $pdo->prepare('SELECT * FROM users WHERE email = :email AND active = 1 LIMIT 1');
-        $st->execute([':email' => $email]);
         $row = $st->fetch();
         return $row ?: null;
     }
@@ -96,32 +103,15 @@ final class UserRepository
     }
 
     /** Verifica credenciais locais */
-    /*public function verifyLocalLogin(string $email, string $plainPassword): ?array
-    {
-        $pdo = Database::pdo();
-        $st = $pdo->prepare(
-            'SELECT * FROM users
-              WHERE LOWER(TRIM(email)) = LOWER(TRIM(:e))
-                AND active = 1
-              LIMIT 1'
-        );
-        $st->execute([':e' => $this->norm($email)]);
-        $user = $st->fetch() ?: null;
-
-        if (!$user || empty($user['password_hash'])) {
-            return null;
-        }
-        if (!password_verify($plainPassword, (string)$user['password_hash'])) {
-            return null;
-        }
-        return $user;
-    }*/
-
     public function verifyLocalLogin(string $email, string $plainPassword): ?array
     {
         $pdo = Database::pdo();
         $st = $pdo->prepare(
-            'SELECT id, name, email, role, active, password_hash FROM users WHERE LOWER(TRIM(email)) = LOWER(TRIM(:e)) AND active = 1 LIMIT 1'
+            'SELECT id, name, email, role, active, password_hash
+               FROM users
+              WHERE LOWER(TRIM(email)) = LOWER(TRIM(:e))
+                AND active = 1
+              LIMIT 1'
         );
         $st->execute([':e' => trim($email)]);
         $u = $st->fetch();
@@ -143,7 +133,6 @@ final class UserRepository
 
         return null;
     }
-
 
     /** Liga conta Microsoft ao usuário local */
     public function attachEntraId(int $userId, string $entraId): void

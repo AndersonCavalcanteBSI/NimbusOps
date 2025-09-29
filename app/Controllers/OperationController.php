@@ -35,6 +35,13 @@ final class OperationController extends Controller
         return null;
     }
 
+    private function isAdmin(?int $uid): bool
+    {
+        if (!$uid) return false;
+        $u = (new UserRepository())->findBasic($uid);
+        return ($u && ($u['role'] ?? '') === 'admin');
+    }
+
     /** Status exigido por etapa */
     private function requiredStatusForStage(int $stage): ?string
     {

@@ -2,6 +2,8 @@
 $withNav   = true;
 $pageTitle = 'Operações';
 $pageCss   = ['/assets/ops.css']; // CSS da página
+$uid = (int)($_SESSION['user']['id'] ?? $_SESSION['user_id'] ?? 0);
+$isAdmin = (($_SESSION['user']['role'] ?? '') === 'admin');
 include __DIR__ . '/../layout/header.php';
 ?>
 
@@ -149,6 +151,9 @@ include __DIR__ . '/../layout/header.php';
 
                                 <td class="text-end">
                                     <a class="btn btn-sm btn-brand" href="/operations/<?= (int)$row['id'] ?>">Abrir</a>
+                                    <?php if ($isAdmin): ?>
+                                        <a class="btn btn-sm btn-brand" href="/operations/<?= (int)$row['id'] ?>/edit">Editar</a>
+                                    <?php endif; ?>
                                 </td>
                             </tr>
                     <?php endforeach;

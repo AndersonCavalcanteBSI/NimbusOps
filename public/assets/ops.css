@@ -682,3 +682,27 @@ input[readonly]{
   .topnav-link{ padding:.6rem .75rem; }
   .topbar .container{ padding-top:.45rem; padding-bottom:.45rem; }
 }
+
+/* Pagination refinada */
+.ops-pagination .page-link {
+  border: 1px solid #e6e6e6;
+  border-radius: .5rem;
+  padding: .45rem .7rem;
+  color: #0f172a;
+}
+.ops-pagination .page-item + .page-item .page-link { margin-left: .35rem; }
+.ops-pagination .page-item.active .page-link {
+  background-color: #0e2d52;
+  border-color: #0e2d52;
+  color: #fff;
+}
+.ops-pagination .page-item.disabled .page-link {
+  color: #94a3b8;
+  background-color: #f8fafc;
+  border-color: #e6e6e6;
+  pointer-events: none;
+}
+.ops-pagination .ellipsis {
+  border: none !important;
+  background: transparent !important;
+}

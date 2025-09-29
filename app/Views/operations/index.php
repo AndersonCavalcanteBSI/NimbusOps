@@ -165,13 +165,61 @@ include __DIR__ . '/../layout/header.php';
 
     <!-- Paginação -->
     <?php if ($pages > 1): ?>
+        <?php
+        // preserva filtros na querystring
+        $build = function (int $p) {
+            return '?' . http_build_query(array_merge($_GET, ['page' => $p]));
+        };
+
+        $window = 2; // quantas páginas mostrar ao redor da atual
+        $items  = [];
+
+        // sempre a primeira
+        $items[] = 1;
+
+        // intervalo central (com janela)
+        $start = max(2, $page - $window);
+        $end   = min($pages - 1, $page + $window);
+
+        if ($start > 2) {
+            $items[] = '...';
+        }
+        for ($p = $start; $p <= $end; $p++) {
+            if ($p >= 2 && $p <= $pages - 1) {
+                $items[] = $p;
+            }
+        }
+        if ($end < $pages - 1) {
+            $items[] = '...';
+        }
+
+        // sempre a última (se >1)
+        if ($pages > 1) {
+            $items[] = $pages;
+        }
+        ?>
         <nav aria-label="Paginação" class="mt-3">
             <ul class="pagination justify-content-end ops-pagination">
-                <?php for ($p = 1; $p <= $pages; $p++): $q = http_build_query(array_merge($_GET, ['page' => $p])); ?>
-                    <li class="page-item <?= ($p === $page) ? 'active' : '' ?>">
-                        <a class="page-link" href="?<?= $q ?>"><?= $p ?></a>
-                    </li>
-                <?php endfor; ?>
+                <!-- Previous -->
+                <li class="page-item <?= ($page <= 1 ? 'disabled' : '') ?>">
+                    <a class="page-link" href="<?= $page > 1 ? $build($page - 1) : '#' ?>" aria-label="Previous">« Anterior</a>
+                </li>
+
+                <!-- Números + reticências -->
+                <?php foreach ($items as $it): ?>
+                    <?php if ($it === '...'): ?>
+                        <li class="page-item disabled"><span class="page-link ellipsis">…</span></li>
+                    <?php else: $p = (int)$it; ?>
+                        <li class="page-item <?= ($p === $page ? 'active' : '') ?>">
+                            <a class="page-link" href="<?= $build($p) ?>"><?= $p ?></a>
+                        </li>
+                    <?php endif; ?>
+                <?php endforeach; ?>
+
+                <!-- Next -->
+                <li class="page-item <?= ($page >= $pages ? 'disabled' : '') ?>">
+                    <a class="page-link" href="<?= $page < $pages ? $build($page + 1) : '#' ?>" aria-label="Next">Próximo »</a>
+                </li>
             </ul>
         </nav>
     <?php endif; ?>

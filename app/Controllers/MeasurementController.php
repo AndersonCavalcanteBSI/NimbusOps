@@ -115,14 +115,14 @@ final class MeasurementController extends Controller
         $decor = '';
         $notes = trim($notes);
         if ($notes !== '') {
-            $by  = 'sistema';
+            $by  = 'NimbusOps';
             if ($uid) {
                 $u = (new \App\Repositories\UserRepository())->findBasic($uid);
                 if ($u && !empty($u['name'])) {
                     $by = $u['name'];
                 }
             }
-            $decor = "\n\n--- " . date('d/m/Y H:i:s') . " por " . "<b>" . $by . "</b>" . " ---\n" . $notes;
+            $decor = "\n\n--- " . date('d/m/Y H:i:s') . " por " . $by . " ---\n" . $notes;
         }
         if ($decor === '') {
             // Sem novas notas: não mexe no campo notes
@@ -169,10 +169,16 @@ final class MeasurementController extends Controller
     public function store(): void
     {
         $opId = (int)($_POST['operation_id'] ?? 0);
-        if ($opId <= 0) {
+        /*if ($opId <= 0) {
             http_response_code(400);
             echo 'Operação inválida';
             return;
+        }*/
+        if ($opId <= 0) {
+            $_SESSION['flash_error'] = 'Selecione uma operação antes de enviar o arquivo.';
+            session_write_close();
+            header('Location: /measurements/upload');
+            exit;
         }
         $op = (new OperationRepository())->find($opId);
         if (!$op) {

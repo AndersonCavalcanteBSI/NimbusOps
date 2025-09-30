@@ -5,6 +5,8 @@ $pageCss   = ['/assets/ops.css']; // garante a paleta/estilos reutilizados
 $ops = $operations ?? [];
 usort($ops, fn($a, $b) => strcasecmp($a['title'] ?? '', $b['title'] ?? ''));
 include __DIR__ . '/../layout/header.php';
+$flashError = $_SESSION['flash_error'] ?? null;
+unset($_SESSION['flash_error']);
 ?>
 
 <section class="ops-hero ops-hero--clean">
@@ -195,13 +197,13 @@ include __DIR__ . '/../layout/header.php';
         function showChip(file) {
             chip.className = 'd-inline-flex align-items-center gap-2 px-3 py-2 rounded-pill bg-white border';
             chip.innerHTML = `
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-        <path d="M6 8V6a2 2 0 0 1 2-2h5l5 5v9a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2v-1" stroke="#0e2d52" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-      </svg>
-      <span class="fw-semibold">${file.name}</span>
-      <span class="text-muted small">(${fmtSize(file.size)})</span>
-      <button type="button" class="btn btn-sm btn-outline-danger ms-2" id="removeFile">Remover</button>
-    `;
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                    <path d="M6 8V6a2 2 0 0 1 2-2h5l5 5v9a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2v-1" stroke="#0e2d52" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+                <span class="fw-semibold">${file.name}</span>
+                <span class="text-muted small">(${fmtSize(file.size)})</span>
+                <button type="button" class="btn btn-sm btn-outline-danger ms-2" id="removeFile">Remover</button>
+            `;
             chip.classList.remove('d-none');
             document.getElementById('removeFile').onclick = () => {
                 input.value = '';
@@ -274,5 +276,29 @@ include __DIR__ . '/../layout/header.php';
         });
     })();
 </script>
+
+<script>
+    (function() {
+        const form = document.getElementById('uploadForm');
+        const op = document.getElementById('operation_id');
+
+        if (form && op) {
+            form.addEventListener('submit', function(e) {
+                const val = parseInt(op.value || '0', 10);
+                if (!val || val <= 0) {
+                    e.preventDefault();
+                    alert('Selecione uma operação antes de enviar o arquivo.');
+                    op.focus();
+                }
+            });
+        }
+
+        // Se vier do servidor um flash de erro, mostra o pop-up também
+        <?php if (!empty($flashError)): ?>
+            alert(<?= json_encode($flashError, JSON_UNESCAPED_UNICODE) ?>);
+        <?php endif; ?>
+    })();
+</script>
+
 
 <?php include __DIR__ . '/../layout/footer.php'; ?>

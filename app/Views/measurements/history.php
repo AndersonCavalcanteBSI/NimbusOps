@@ -109,7 +109,7 @@ $badgeCls = match ($statusLower) {
                         $stageNames = [
                             1 => 'Engenharia',
                             2 => 'Gestão',
-                            3 => 'Jurídico',
+                            3 => 'Compliance',
                             4 => 'Pagamento',
                             5 => 'Finalização',
                             6 => 'Completo',
@@ -117,12 +117,12 @@ $badgeCls = match ($statusLower) {
                         ?>
                         <?php
                         $stageBadges = [
-                            1 => ['Engenharia',  'stage--engenharia'],
-                            2 => ['Gestão',      'stage--gestao'],
-                            3 => ['Jurídico',    'stage--juridico'],
-                            4 => ['Pagamento',   'stage--pagamento'],
-                            5 => ['Finalização', 'stage--finalizar'],
-                            6 => ['Completo',    'stage--completo'],
+                            1 => ['Engenharia',     'stage--engenharia'],
+                            2 => ['Gestão',         'stage--gestao'],
+                            3 => ['Compliance',     'stage--juridico'],
+                            4 => ['Pagamento',      'stage--pagamento'],
+                            5 => ['Finalização',    'stage--finalizar'],
+                            6 => ['Completo',       'stage--completo'],
                         ];
                         // badge por método
                         $methodBadge = function (?string $m): array {

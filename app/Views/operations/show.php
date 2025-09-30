@@ -49,7 +49,7 @@ include __DIR__ . '/../layout/header.php';
                     $stageMap = [
                         'Engenharia'  => 'stage--engenharia',
                         'Gestão'      => 'stage--gestao',
-                        'Jurídico'    => 'stage--juridico',
+                        'Compliance'    => 'stage--juridico',
                         'Pagamento'   => 'stage--pagamento',
                         'Finalização' => 'stage--finalizar',
                         'Completo'    => 'stage--completo',

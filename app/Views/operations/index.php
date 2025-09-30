@@ -38,7 +38,7 @@ include __DIR__ . '/../layout/header.php';
                     <label class="form-label ops-label">Status</label>
                     <select name="status" class="form-select ops-input">
                         <option value="">Todos</option>
-                        <?php foreach (['completo', 'engenharia', 'finalização', 'gestão', 'jurídico', 'pagamento', 'rejeitado'] as $s): ?>
+                        <?php foreach (['completo', 'compliance', 'engenharia', 'finalização', 'gestão', 'pagamento', 'rejeitado'] as $s): ?>
                             <option value="<?= $s ?>" <?= (($filters['status'] ?? '') === $s) ? 'selected' : '' ?>><?= ucfirst($s) ?></option>
                         <?php endforeach; ?>
                     </select>
@@ -104,12 +104,12 @@ include __DIR__ . '/../layout/header.php';
 
                             // Mapa de estágios do pipeline -> classe de cor
                             $stageMap = [
-                                'Engenharia'  => 'stage--engenharia',
-                                'Gestão'      => 'stage--gestao',
-                                'Jurídico'    => 'stage--juridico',
-                                'Pagamento'   => 'stage--pagamento',
-                                'Finalização' => 'stage--finalizar',
-                                'Completo'    => 'stage--completo',
+                                'Engenharia'    => 'stage--engenharia',
+                                'Gestão'        => 'stage--gestao',
+                                'Compliance'    => 'stage--juridico',
+                                'Pagamento'     => 'stage--pagamento',
+                                'Finalização'   => 'stage--finalizar',
+                                'Completo'      => 'stage--completo',
                             ];
                             $statusLabel = (string)($row['status'] ?? '');
                             $stageClass  = $stageMap[$statusLabel] ?? null;

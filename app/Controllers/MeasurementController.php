@@ -20,7 +20,7 @@ final class MeasurementController extends Controller
     // -------------------------
     private const ST_ENGENHARIA = 'Engenharia';
     private const ST_GESTAO     = 'Gestão';
-    private const ST_JURIDICO   = 'Jurídico';
+    private const ST_JURIDICO   = 'Compliance';
     private const ST_PAGAMENTO  = 'Pagamento';
     private const ST_FINALIZAR  = 'Finalizar';
     private const ST_COMPLETO   = 'Completo';
@@ -491,7 +491,7 @@ final class MeasurementController extends Controller
                         break;
                     case 4:
                         $newStatus = self::ST_JURIDICO;
-                        $note      = "Medição reprovada na 4ª validação. Retorno para Jurídico.";
+                        $note      = "Medição reprovada na 4ª validação. Retorno para Compliance.";
                         break;
                     default:
                         $newStatus = self::ST_PAGAMENTO;
@@ -548,7 +548,7 @@ final class MeasurementController extends Controller
                     $base = rtrim($_ENV['APP_URL'] ?? '', '/');
                     $link = $base . '/measurements/' . (int)$fileId . '/review/3';
                     $opTitle = trim((string)($op['title'] ?? ''));
-                    $subject = $opTitle . ' — ' . 'Nova medição para análise — 3ª validação (Jurídico)';
+                    $subject = $opTitle . ' — ' . 'Nova medição para análise — 3ª validação (Compliance)';
                     $cta = '
                         <table role="presentation" cellspacing="0" cellpadding="0" border="0" style="margin:16px 0">
                             <tr>
@@ -560,13 +560,13 @@ final class MeasurementController extends Controller
                             </tr>
                         </table>';
                     $html  = '<p>Olá, ' . $this->esc((string)$u['name']) . '.</p>'
-                        . '<p>Há uma nova medição para análise na <strong>3ª validação: Jurídico</strong> da operação '
+                        . '<p>Há uma nova medição para análise na <strong>3ª validação: Compliance</strong> da operação '
                         . '<strong>' . $this->esc($opTitle) . '</strong>.</p>'
                         . $cta;
                     $this->smtpSend($u['email'], $u['name'], $subject, $html, (int)$opId);
                 }
             }
-            $this->setStatus($opId, self::ST_JURIDICO, 'Aprovada na 2ª validação; próxima etapa: Jurídico.');
+            $this->setStatus($opId, self::ST_JURIDICO, 'Aprovada na 2ª validação; próxima etapa: Compliance.');
             $ohRepo->log($opId, 'measurement', 'Medição aprovada na 2ª validação. Observações: ' . $notes);
         } elseif ($stage === 3) {
             // Garante ETAPA 4 pendente
@@ -750,7 +750,7 @@ final class MeasurementController extends Controller
             return match ((int)$n) {
                 1 => 'Engenharia',
                 2 => 'Gestão',
-                3 => 'Jurídico',
+                3 => 'Compliance',
                 4 => 'Pagamento',
                 default => '—',
             };
@@ -1104,7 +1104,7 @@ final class MeasurementController extends Controller
                 return match ($n) {
                     1 => 'Engenharia',
                     2 => 'Gestão',
-                    3 => 'Jurídico',
+                    3 => 'Compliance',
                     4 => 'Pagamento',
                     default => $n . 'ª etapa',
                 };

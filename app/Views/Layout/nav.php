@@ -39,7 +39,7 @@ $h = fn($s) => htmlspecialchars((string)$s);
                 <?php else: ?>
                     <?php if (!($msLinked ?? false)): ?>
                         <li class="nav-item d-none d-lg-block">
-                            <a class="btn btn-outline-brand btn-pill" href="/auth/microsoft">Vincular Microsoft</a>
+                            <!--<a class="btn btn-outline-brand btn-pill" href="/auth/microsoft">Vincular Microsoft</a>-->
                         </li>
                     <?php endif; ?>
 

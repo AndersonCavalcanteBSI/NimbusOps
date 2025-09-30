@@ -3,6 +3,7 @@ $role      = $_SESSION['user']['role'] ?? 'user';
 $loggedIn  = !empty($_SESSION['user']['id']);
 $msLinked  = (int)($_SESSION['user']['ms_linked'] ?? 0) === 1;
 $pageCss   = $pageCss   ?? [];
+require_once __DIR__ . '/../partials/avatar_helper.php';
 ?>
 <!doctype html>
 <html lang="pt-br">

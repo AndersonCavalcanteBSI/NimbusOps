@@ -707,3 +707,12 @@ input[readonly]{
   border: none !important;
   background: transparent !important;
 }
+
+.avatar-xl{
+  width:120px; height:120px; border-radius:50%;
+  object-fit:cover; background:#fff; border:2px solid #e9ecef; display:block;
+}
+.avatar-sm{
+  width:32px; height:32px; border-radius:50%;
+  object-fit:cover; display:inline-block;
+}

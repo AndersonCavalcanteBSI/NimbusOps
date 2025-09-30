@@ -6,6 +6,7 @@ require __DIR__ . '/../vendor/autoload.php';
 
 use Core\Env;
 use App\Middlewares\RequireRoleMiddleware;
+use App\Controllers\ProfileController;
 
 Env::load(dirname(__DIR__)); // carrega .env ANTES de ler APP_URL
 
@@ -142,6 +143,11 @@ $router->get('/auth/microsoft/unlink', fn() => (new AuthController())->unlinkMic
 // Editar operação
 $router->get('/operations/{id}/edit', $adminOnly(fn(string $id) => (new OperationController())->edit((int)$id)));
 $router->post('/operations/{id}',      $adminOnly(fn(string $id) => (new OperationController())->update((int)$id)));
+
+// Perfil (somente usuário logado visualiza/atualiza o próprio perfil)
+// O AuthMiddleware já protege estas rotas por sessão.
+$router->get('/profile',  fn() => (new ProfileController())->show());
+$router->post('/profile', fn() => (new ProfileController())->update());
 
 // Compat antigo GET "analyzed" -> review/1
 $router->get('/measurements/{id}/analyzed', function (string $id) {

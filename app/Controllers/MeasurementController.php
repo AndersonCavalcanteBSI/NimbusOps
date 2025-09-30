@@ -992,6 +992,88 @@ final class MeasurementController extends Controller
             default => 0,
         };
     }
+
+    /** Quem pode finalizar (Finalizar): finalizer da OP ou admin */
+    private function userCanFinalize(?int $uid, array $op): bool
+    {
+        if (!$uid) return false;
+        $user = (new \App\Repositories\UserRepository())->findBasic($uid);
+        if (!$user) return false;
+        if (($user['role'] ?? '') === 'admin') return true;
+        return $uid === (int)($op['payment_finalizer_user_id'] ?? 0);
+    }
+
+    public function finalizeReject(int $fileId): void
+    {
+        $pdo = \Core\Database::pdo();
+
+        // arquivo -> operação
+        $st = $pdo->prepare('SELECT operation_id, status FROM measurement_files WHERE id = :id');
+        $st->execute([':id' => $fileId]);
+        $file = $st->fetch();
+
+        if (!$file) {
+            http_response_code(404);
+            echo 'Medição não encontrada';
+            return;
+        }
+
+        $opId = (int)$file['operation_id'];
+        $op   = (new OperationRepository())->find($opId);
+        if (!$op) {
+            http_response_code(404);
+            echo 'Operação não encontrada';
+            return;
+        }
+
+        // precisa estar em "Finalizar" para poder recusar daqui
+        if (!$this->statusEquals((string)($op['status'] ?? ''), self::ST_FINALIZAR)) {
+            http_response_code(403);
+            echo 'Esta ação só está disponível quando a operação está em "Finalizar".';
+            return;
+        }
+
+        // permissão: finalizador (ou admin)
+        $uid = $this->currentUserId();
+        if (!$this->userCanFinalize($uid, (array)$op)) {
+            http_response_code(403);
+            echo 'Você não tem permissão para recusar na etapa de Finalização.';
+            return;
+        }
+
+        $notes = trim((string)($_POST['notes'] ?? ''));
+        if ($notes === '') {
+            http_response_code(400);
+            echo 'Informe o motivo da recusa.';
+            return;
+        }
+
+        $ohRepo = new OperationHistoryRepository();
+
+        // marca arquivo como "Rejeitado" (não fecha)
+        $pdo->prepare('UPDATE measurement_files SET status = :s WHERE id = :id')
+            ->execute([':s' => 'Rejeitado', ':id' => $fileId]);
+
+        // volta OP para "Pagamento"
+        $this->setStatus($opId, self::ST_PAGAMENTO, 'Recusada na Finalização. Retorno para Pagamento.');
+        $ohRepo->log($opId, 'measurement', 'Medição recusada na etapa de Finalização. Observações: ' . $notes);
+
+        // reabre a ETAPA 4 como pendente
+        $pdo->prepare(
+            'UPDATE measurement_reviews
+            SET status = "pending", reviewed_at = NULL
+          WHERE measurement_file_id = :f AND stage = 4'
+        )->execute([':f' => $fileId]);
+
+        // notifica assinantes + revisor da etapa anterior (4ª)
+        // usamos "4" como etapa para manter a mesma lógica/assunto
+        $this->sendRejectionEmails((array)$op, $opId, $fileId, 4, $notes);
+
+        // ficar na mesma página (history dá contexto completo)
+        header('Location: /measurements/' . (int)$fileId . '/history');
+        exit;
+    }
+
     /**
      * Lista os destinatários “fixos” para RECUSA.
      * Se você já tem uma tabela/feature para “notificar sempre”, ajuste aqui.

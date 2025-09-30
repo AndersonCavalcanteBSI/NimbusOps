@@ -125,6 +125,8 @@ $router->post('/measurements/{id}/payments',    fn(string $id) => (new Measureme
 // Finalização (Fase 7)
 $router->get('/measurements/{id}/finalize', fn(string $id) => (new MeasurementController())->finalizeForm((int)$id));
 $router->post('/measurements/{id}/finalize', fn(string $id) => (new MeasurementController())->finalizeSubmit((int)$id));
+$router->post('/measurements/{id}/finalize/reject', fn(string $id) => (new MeasurementController())->finalizeReject((int)$id));
+
 
 // Criar operação
 $router->get('/operations/create', $adminOnly(fn() => (new OperationController())->create()));

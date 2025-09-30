@@ -1,7 +1,12 @@
 <?php
 $path   = $_SERVER['REQUEST_URI'] ?? '/';
 $active = fn(string $needle) => (str_starts_with($path, $needle) ? ' is-active' : '');
-$h = fn($s) => htmlspecialchars((string)$s);
+//$h = fn($s) => htmlspecialchars((string)$s);
+$h = fn($s) => htmlspecialchars((string)$s, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+require_once __DIR__ . '/../partials/avatar_helper.php';
+$displayName = $_SESSION['user']['name']  ?? 'Perfil';
+$avatarPath  = $_SESSION['user']['avatar'] ?? '';
+$avatarSrc   = $avatarPath !== '' ? $h($avatarPath) : avatarPlaceholder($displayName, 28);
 ?>
 <nav class="navbar navbar-expand-lg topbar shadow-sm">
     <div class="container">
@@ -46,8 +51,8 @@ $h = fn($s) => htmlspecialchars((string)$s);
                     <!-- Usuário (dropdown simples) -->
                     <li class="nav-item dropdown">
                         <a class="topnav-user dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
-                            <span class="user-dot"></span>
-                            <?= $h($_SESSION['user']['name'] ?? 'Perfil') ?>
+                            <img src="<?= $avatarSrc ?>" alt="Avatar" class="topnav-avatar me-2" width="28" height="28" onerror="this.onerror=null;this.src='<?= avatarPlaceholder($displayName, 28) ?>';" />
+                            <?= $h($displayName) ?>
                         </a>
                         <ul class="dropdown-menu dropdown-menu-end">
                             <li><a class="dropdown-item" href="/profile">Meu perfil</a></li>

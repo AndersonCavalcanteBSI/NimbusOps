@@ -716,3 +716,12 @@ input[readonly]{
   width:32px; height:32px; border-radius:50%;
   object-fit:cover; display:inline-block;
 }
+
+.topnav-avatar{
+  width:28px; height:28px;
+  border-radius:50%;
+  object-fit:cover;
+  border:2px solid rgba(255,255,255,.25);
+  background:#0B2A4A; /* cor de fundo caso o SVG não carregue */
+  display:inline-block;
+}

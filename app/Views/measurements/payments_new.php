@@ -129,7 +129,8 @@ $fmt = function (?string $d): string {
             </div>
 
             <div class="p-3 d-flex gap-2">
-                <button class="btn btn-brand btn-pill">Salvar pagamentos</button>
+                <!--<button class="btn btn-brand btn-pill">Salvar pagamentos</button>-->
+                <button id="saveBtn" class="btn btn-brand btn-pill" disabled>Salvar pagamentos</button>
                 <a href="/operations/<?= (int)$file['op_id'] ?>" class="btn btn-brand btn-pill">Cancelar</a>
             </div>
         </form>
@@ -187,11 +188,11 @@ $fmt = function (?string $d): string {
         const rowsWrap = document.getElementById('rows');
         const addRowBtn = document.getElementById('addRow');
         const totalEl = document.getElementById('totalLabel');
+        const saveBtn = document.getElementById('saveBtn'); // <-- NOVO
 
         // máscara/parse de moeda PT-BR
         function parseBRL(str) {
             if (!str) return 0;
-            // aceita "R$ ", pontos, vírgula etc.
             const s = String(str).replace(/\./g, '').replace(',', '.').replace(/[^\d.-]/g, '');
             const n = parseFloat(s);
             return isNaN(n) ? 0 : n;
@@ -203,44 +204,58 @@ $fmt = function (?string $d): string {
                 .replace(/\B(?=(\d{3})+(?!\d))/g, '.');
         }
 
+        // ---- NOVO: verifica se há pelo menos um lançamento válido
+        function hasAtLeastOneValidRow() {
+            const rows = Array.from(rowsWrap.querySelectorAll('.pay-row'))
+                .filter(r => !r.hasAttribute('data-prototype'));
+
+            for (const row of rows) {
+                const dateEl = row.querySelector('input[name="pay_date[]"]');
+                const amtEl = row.querySelector('input[name="amount[]"]');
+                const valNum = parseBRL(amtEl?.value || '');
+                if ((dateEl?.value || '') !== '' && valNum > 0) return true;
+            }
+            return false;
+        }
+
+        // ---- NOVO: atualiza estado do botão Salvar
+        function updateSaveEnabled() {
+            const ok = hasAtLeastOneValidRow();
+            saveBtn.disabled = !ok;
+            saveBtn.title = ok ? '' : 'Adicione pelo menos um pagamento válido (data e valor).';
+        }
+
         function updateTotal() {
             let sum = 0;
             document.querySelectorAll('.pay-amount').forEach(inp => {
                 sum += parseBRL(inp.value);
             });
             totalEl.textContent = fmtBRL(sum);
+            updateSaveEnabled(); // <-- NOVO: sincroniza botão
         }
 
         // máscara ao digitar
         function maskOnInput(e) {
-            let v = e.target.value.replace(/[^\d]/g, ''); // só dígitos
+            let v = e.target.value.replace(/[^\d]/g, '');
             if (v === '') {
                 e.target.value = '';
                 updateTotal();
                 return;
             }
-
-            // sempre 2 casas
             while (v.length < 3) v = '0' + v;
-
-            // separa inteiro/decimal
             let intPart = v.slice(0, -2);
             const decPart = v.slice(-2);
-
-            // remove zeros à esquerda mantendo um zero se tudo for zero
             intPart = intPart.replace(/^0+(?=\d)/, '');
             if (intPart === '') intPart = '0';
-
-            // milhar com ponto + vírgula decimal
             const intFmt = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
             e.target.value = 'R$ ' + intFmt + ',' + decPart;
-
             updateTotal();
         }
 
         function maskOnBlur(e) {
             const n = parseBRL(e.target.value);
             e.target.value = n ? fmtBRL(n) : '';
+            updateTotal(); // garante revalidação após blur
         }
 
         // delega remover linha
@@ -249,7 +264,6 @@ $fmt = function (?string $d): string {
             if (!btn) return;
             const row = btn.closest('.pay-row');
             if (!row) return;
-            // não remover se for a última linha visível
             if (rowsWrap.querySelectorAll('.pay-row:not([data-prototype])').length <= 1) {
                 row.querySelectorAll('input').forEach(i => i.value = '');
                 updateTotal();
@@ -259,6 +273,13 @@ $fmt = function (?string $d): string {
             updateTotal();
         });
 
+        // NOVO: revalida quando datas mudam (captura mudanças em qualquer linha)
+        rowsWrap.addEventListener('change', function(ev) {
+            if (ev.target && ev.target.name === 'pay_date[]') {
+                updateSaveEnabled();
+            }
+        });
+
         // adiciona nova linha
         addRowBtn.addEventListener('click', function() {
             const proto = rowsWrap.querySelector('[data-prototype]');
@@ -266,9 +287,8 @@ $fmt = function (?string $d): string {
             clone.classList.remove('d-none');
             clone.removeAttribute('data-prototype');
 
-            // reativar inputs e setar required onde necessário
             clone.querySelectorAll('input').forEach(i => {
-                i.disabled = false; // <— importantíssimo
+                i.disabled = false;
                 i.value = '';
             });
             const dateInput = clone.querySelector('input[name="pay_date[]"]');
@@ -276,50 +296,33 @@ $fmt = function (?string $d): string {
             if (dateInput) dateInput.required = true;
             if (amtInput) amtInput.required = true;
 
-            rowsWrap.appendChild(clone);
-
-            // ligar máscara do novo campo
+            // liga máscara e blur no novo campo
             clone.querySelectorAll('.pay-amount').forEach(i => {
                 i.addEventListener('input', maskOnInput);
+                i.addEventListener('blur', maskOnBlur); // <-- NOVO
             });
+
+            rowsWrap.appendChild(clone);
+            updateSaveEnabled(); // <-- NOVO
         });
 
         // ligar máscara nos existentes
-        document.querySelectorAll('.pay-amount').forEach(i => i.addEventListener('input', maskOnInput));
-
-        // calcula total ao carregar
-        updateTotal();
-
-        // garante números em formato server-friendly no submit
-        document.getElementById('payForm').addEventListener('submit', function() {
-            document.querySelectorAll('.pay-amount').forEach(inp => {
-                const val = parseBRL(inp.value);
-                // substitui pelo valor com ponto (servidor aceita float)
-                inp.value = val.toString();
-            });
+        document.querySelectorAll('.pay-amount').forEach(i => {
+            i.addEventListener('input', maskOnInput);
+            i.addEventListener('blur', maskOnBlur); // <-- NOVO
         });
 
-        // garante números em formato server-friendly no submit + validação mínima
+        // calcula total e estado do botão ao carregar
+        updateTotal();
+        updateSaveEnabled();
+
+        // validação final no submit (mantém sua regra atual)
         document.getElementById('payForm').addEventListener('submit', function(e) {
-            let hasValid = false;
-
-            const rows = Array.from(rowsWrap.querySelectorAll('.pay-row')).filter(r => !r.hasAttribute('data-prototype'));
-            rows.forEach(row => {
-                const dateEl = row.querySelector('input[name="pay_date[]"]');
-                const amtEl = row.querySelector('input[name="amount[]"]');
-                const valNum = parseBRL(amtEl?.value || '');
-
-                if ((dateEl?.value || '') !== '' && valNum > 0) {
-                    hasValid = true;
-                }
-            });
-
-            if (!hasValid) {
+            if (!hasAtLeastOneValidRow()) {
                 e.preventDefault();
                 alert('Informe ao menos um pagamento válido (data e valor).');
                 return;
             }
-
             // normaliza valores PT-BR -> float com ponto
             document.querySelectorAll('.pay-amount').forEach(inp => {
                 const val = parseBRL(inp.value);
@@ -328,5 +331,6 @@ $fmt = function (?string $d): string {
         });
     })();
 </script>
+
 
 <?php include __DIR__ . '/../layout/footer.php'; ?>

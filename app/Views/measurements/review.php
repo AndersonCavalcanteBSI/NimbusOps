@@ -209,7 +209,9 @@ $stageInfo = $stageMap[(int)$stage] ?? ['label' => $stage . 'ª validação', 'c
                 <div class="modal-titlebar__text">Registrar decisão</div>
             </div>
             <div class="card-body">
-                <form id="reviewForm" method="post" action="/measurements/<?= (int)$file['id'] ?>/review/<?= (int)$stage ?>">
+                <?php $hasPayments = !empty($payments) && count($payments) > 0; ?>
+                <!--<form id="reviewForm" method="post" action="/measurements/<?= (int)$file['id'] ?>/review/<?= (int)$stage ?>">-->
+                <form id="reviewForm" method="post" action="/measurements/<?= (int)$file['id'] ?>/review/<?= (int)$stage ?>" data-stage="<?= (int)$stage ?>" data-has-payments="<?= $hasPayments ? '1' : '0' ?>">
                     <input type="hidden" name="decision" id="decisionField" value="">
                     <div class="mb-3">
                         <label class="form-label ops-label" for="notes">Observações</label>
@@ -229,6 +231,23 @@ $stageInfo = $stageMap[(int)$stage] ?? ['label' => $stage . 'ª validação', 'c
             </div>
         </div>
     <?php endif; ?>
+    <!-- Modal: sem pagamentos -->
+    <div id="noPaymentsModal" class="modal fade" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered" style="max-width:480px">
+            <div class="modal-content" style="border-radius:12px">
+                <div class="modal-header" style="border:none">
+                    <h5 class="modal-title">Ação não permitida</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+                </div>
+                <div class="modal-body">
+                    <p>É necessário cadastrar ao menos um pagamento antes de aprovar esta etapa.</p>
+                </div>
+                <div class="modal-footer" style="border:none">
+                    <button type="button" class="btn btn-brand btn-pill" data-bs-dismiss="modal">Entendi</button>
+                </div>
+            </div>
+        </div>
+    </div>
 
 </div>
 
@@ -251,15 +270,33 @@ $stageInfo = $stageMap[(int)$stage] ?? ['label' => $stage . 'ª validação', 'c
         // define a decisão no hidden quando o usuário clica
         form.querySelectorAll('button[data-decision]').forEach(btn => {
             btn.addEventListener('click', () => {
-                hidden.value = btn.getAttribute('data-decision'); // "approve" ou "reject"
+                hidden.value = btn.getAttribute('data-decision'); // "approve" | "reject"
             });
         });
 
-        // trava duplo submit (agora seguro porque a decisão está no hidden)
-        form.addEventListener('submit', function() {
+        // bloqueia aprovação sem pagamentos na 4ª etapa
+        form.addEventListener('submit', function(e) {
+            const stage = Number(form.dataset.stage || '0');
+            const hasPayments = form.dataset.hasPayments === '1';
+            const decision = (hidden.value || '').toLowerCase(); // setado no click
+
+            if (stage === 4 && decision === 'approve' && !hasPayments) {
+                e.preventDefault();
+                const modalEl = document.getElementById('noPaymentsModal');
+                if (window.bootstrap && modalEl) {
+                    const m = bootstrap.Modal.getOrCreateInstance(modalEl);
+                    m.show();
+                } else {
+                    alert('É necessário cadastrar ao menos um pagamento antes de aprovar esta etapa.');
+                }
+                return false;
+            }
+
+            // trava duplo submit somente quando vai realmente enviar
             form.querySelectorAll('button[type="submit"]').forEach(b => b.disabled = true);
         });
     })();
 </script>
+
 
 <?php include __DIR__ . '/../layout/footer.php'; ?>

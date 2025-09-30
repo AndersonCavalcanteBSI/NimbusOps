@@ -122,7 +122,7 @@ final class MeasurementController extends Controller
                     $by = $u['name'];
                 }
             }
-            $decor = "\n\n--- " . date('Y-m-d H:i:s') . " por " . $by . " ---\n" . $notes;
+            $decor = "\n\n--- " . date('d/m/Y H:i:s') . " por " . "<b>" . $by . "</b>" . " ---\n" . $notes;
         }
         if ($decor === '') {
             // Sem novas notas: não mexe no campo notes
@@ -903,20 +903,71 @@ final class MeasurementController extends Controller
     public function finalizeSubmit(int $fileId): void
     {
         $pdo = \Core\Database::pdo();
+
         $opId = (int)$pdo->query('SELECT operation_id FROM measurement_files WHERE id=' . (int)$fileId)->fetchColumn();
         if (!$opId) {
             http_response_code(404);
             echo 'Operação não encontrada';
             return;
         }
+
         // 1) Marca a OP como Completo
         $this->setStatus($opId, self::ST_COMPLETO, 'Pagamento finalizado.');
         // 2) Marca a MEDIÇÃO (arquivo) como Concluído
         $st = $pdo->prepare('UPDATE measurement_files SET status = :s, closed_at = NOW() WHERE id = :id');
         $st->execute([':s' => 'Concluído', ':id' => $fileId]);
+
         // Log
         $oh = new \App\Repositories\OperationHistoryRepository();
         $oh->log($opId, 'payment_finalized', 'Medição #' . (int)$fileId . ' marcada como "Concluído" e operação como "Completo".');
+
+        // ===== NOVO: notificar todos os responsáveis =====
+        $opRepo   = new \App\Repositories\OperationRepository();
+        $userRepo = new \App\Repositories\UserRepository();
+        $op       = $opRepo->find($opId) ?? [];
+
+        // IDs envolvidos na operação
+        $recipientsIds = array_filter([
+            (int)($op['responsible_user_id']       ?? 0),
+            (int)($op['stage2_reviewer_user_id']   ?? 0),
+            (int)($op['stage3_reviewer_user_id']   ?? 0),
+            (int)($op['payment_manager_user_id']   ?? 0),
+            (int)($op['payment_finalizer_user_id'] ?? 0),
+        ]);
+
+        // dedup
+        $recipientsIds = array_values(array_unique(array_map('intval', $recipientsIds)));
+
+        if ($recipientsIds) {
+            $base    = rtrim($_ENV['APP_URL'] ?? '', '/');
+            $link    = $base . '/measurements/' . (int)$fileId . '/history';
+            $opTitle = trim((string)($op['title'] ?? ''));
+            $subject = $opTitle . ' — Medição finalizada';
+
+            // resumo + CTA
+            $html  = $this->buildMeasurementSummaryHtml($opId, $fileId);
+            $html .= '
+            <table role="presentation" cellspacing="0" cellpadding="0" border="0" style="margin:16px 0">
+                <tr>
+                    <td align="left" style="border-radius:8px; background:#0B2A4A;">
+                        <a href="' . $this->esc($link) . '" style="display:inline-block; padding:12px 18px; border-radius:8px; background:#0B2A4A; border:1px solid #0B2A4A; font-family:Arial,Helvetica,sans-serif; font-size:14px; line-height:20px; text-decoration:none; color:#ffffff; font-weight:600;">
+                            Abrir histórico da medição
+                        </a>
+                    </td>
+                </tr>
+            </table>';
+
+            foreach ($recipientsIds as $uid) {
+                if ($u = $userRepo->findBasic((int)$uid)) {
+                    $to = trim((string)($u['email'] ?? ''));
+                    if ($to !== '') {
+                        $this->smtpSend($to, $u['name'] ?? null, $subject, $html, (int)$opId);
+                    }
+                }
+            }
+        }
+        // ===== FIM: notificação =====
+
         // Vai para o histórico da medição
         header('Location: /measurements/' . (int)$fileId . '/history');
         exit;

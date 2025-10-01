@@ -120,7 +120,7 @@ $opts = function (array $users) {
                             </div>
 
                             <div class="col-md-6">
-                                <label class="form-label fw-semibold">3ª validação (Jurídico)</label>
+                                <label class="form-label fw-semibold">3ª validação (Compliance)</label>
                                 <select class="form-select js-pick" name="stage3_reviewer_user_id" data-placeholder="— Selecionar —">
                                     <option value="">— Selecionar —</option>
                                     <?php foreach ($users as $u): ?>

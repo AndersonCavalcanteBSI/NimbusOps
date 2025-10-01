@@ -165,7 +165,8 @@ final class OperationRepository
             ':title'  => (string)$data['title'],
 
             // ⬇️ Não força 'draft': deixa NULL quando não vier para o DEFAULT do banco aplicar
-            ':status' => (($data['status'] ?? '') !== '' ? (string)$data['status'] : null),
+            //':status' => (($data['status'] ?? '') !== '' ? (string)$data['status'] : null),
+            ':status' => (($data['status'] ?? '') !== '' ? (string)$data['status'] : 'Criado'),
 
             ':issuer'   => (($data['issuer']   ?? '') !== '' ? (string)$data['issuer']   : null),
             ':due_date' => (($data['due_date'] ?? '') !== '' ? (string)$data['due_date'] : null),
@@ -280,7 +281,7 @@ final class OperationRepository
     public function generateNextCode(): string
     {
         $last = $this->fetchLastCode();
-        if (!$last) return '0001';
+        if (!$last) return 'BSI-0001';
 
         if (preg_match('/^(.*?)(\d+)$/', $last, $m)) {
             $prefix = $m[1];

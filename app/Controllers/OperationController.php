@@ -219,7 +219,7 @@ final class OperationController extends Controller
     }
 
     /** Reaproveita o mesmo form para criar/editar */
-    public function create(): void
+    /*public function create(): void
     {
         $users = (new UserRepository())->allActive();
         $nextCode = $this->repo->generateNextCode();
@@ -228,10 +228,46 @@ final class OperationController extends Controller
             'op'    => null,
             'nextCode' => $nextCode,
         ]);
+    }*/
+    public function create(): void
+    {
+        // bloqueia quem não é admin com página amigável
+        if (!$this->isAdmin($this->currentUserId())) {
+            http_response_code(403);
+            $this->view('errors/block', [
+                'title'         => 'Permissão necessária',
+                'heading'       => 'Você não tem permissão para criar operações.',
+                'message'       => 'Apenas administradores podem acessar esta página.',
+                'primaryHref'   => '/operations',
+                'primaryLabel'  => 'Ir para operações',
+                'backHref'      => '/operations',
+            ]);
+            return;
+        }
+
+        $users    = (new UserRepository())->allActive();
+        $nextCode = $this->repo->generateNextCode();
+        $this->view('operations/create', [
+            'users'    => $users,
+            'op'       => null,
+            'nextCode' => $nextCode,
+        ]);
     }
 
     public function store(): void
     {
+        if (!$this->isAdmin($this->currentUserId())) {
+            http_response_code(403);
+            $this->view('errors/block', [
+                'title'         => 'Permissão necessária',
+                'heading'       => 'Você não tem permissão para criar operações.',
+                'message'       => 'Apenas administradores podem realizar esta ação.',
+                'primaryHref'   => '/operations',
+                'primaryLabel'  => 'Ir para operações',
+                'backHref'      => '/operations',
+            ]);
+            return;
+        }
         // Campos principais
         $title  = trim((string)($_POST['title'] ?? ''));
         //$code   = trim((string)($_POST['code']  ?? ''));
@@ -354,6 +390,17 @@ final class OperationController extends Controller
     /** Form de edição (mesma view, com $op preenchida) */
     public function edit(int $id): void
     {
+        if (!$this->isAdmin($this->currentUserId())) {
+            http_response_code(403);
+            $this->view('errors/block', [
+                'title'         => 'Permissão necessária',
+                'heading'       => 'Você não tem permissão para editar esta operação.',
+                'primaryHref'   => '/operations',
+                'primaryLabel'  => 'Ir para operações',
+                'backHref'      => '/operations',
+            ]);
+            return;
+        }
         // (opcional) exige admin
         if (!$this->isAdmin($this->currentUserId())) {
             http_response_code(403);
@@ -384,6 +431,17 @@ final class OperationController extends Controller
     /** Salva apenas os IDs dos destinatários/validadores */
     public function update(int $id): void
     {
+        if (!$this->isAdmin($this->currentUserId())) {
+            http_response_code(403);
+            $this->view('errors/block', [
+                'title'         => 'Permissão necessária',
+                'heading'       => 'Você não tem permissão para atualizar esta operação.',
+                'primaryHref'   => '/operations',
+                'primaryLabel'  => 'Ir para operações',
+                'backHref'      => '/operations',
+            ]);
+            return;
+        }
         if (!$this->isAdmin($this->currentUserId())) {
             http_response_code(403);
             echo 'Acesso negado.';

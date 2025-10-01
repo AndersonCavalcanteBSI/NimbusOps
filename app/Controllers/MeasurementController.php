@@ -169,94 +169,132 @@ final class MeasurementController extends Controller
     public function store(): void
     {
         $opId = (int)($_POST['operation_id'] ?? 0);
-        /*if ($opId <= 0) {
-            http_response_code(400);
-            echo 'Operação inválida';
-            return;
-        }*/
         if ($opId <= 0) {
             $_SESSION['flash_error'] = 'Selecione uma operação antes de enviar o arquivo.';
             session_write_close();
             header('Location: /measurements/upload');
             exit;
         }
+
         $op = (new OperationRepository())->find($opId);
         if (!$op) {
-            http_response_code(404);
-            echo 'Operação não encontrada';
-            return;
+            $_SESSION['flash_error'] = 'Operação não encontrada.';
+            session_write_close();
+            header('Location: /measurements/upload');
+            exit;
         }
-        if (!isset($_FILES['file']) || $_FILES['file']['error'] !== UPLOAD_ERR_OK) {
-            http_response_code(400);
-            echo 'Arquivo inválido';
-            return;
+
+        // -------- Upload: validações amigáveis --------
+        if (!isset($_FILES['file'])) {
+            $_SESSION['flash_error'] = 'Nenhum arquivo foi enviado.';
+            session_write_close();
+            header('Location: /measurements/upload');
+            exit;
         }
-        $name = (string)$_FILES['file']['name'];
-        $tmp  = (string)$_FILES['file']['tmp_name'];
-        $size = (int)$_FILES['file']['size'];
+
+        $file = $_FILES['file'];
+        if ((int)$file['error'] !== UPLOAD_ERR_OK) {
+            $msg = match ((int)$file['error']) {
+                UPLOAD_ERR_INI_SIZE, UPLOAD_ERR_FORM_SIZE => 'O arquivo é maior que o permitido.',
+                UPLOAD_ERR_PARTIAL                      => 'Upload não concluído. Tente novamente.',
+                UPLOAD_ERR_NO_FILE                      => 'Nenhum arquivo foi selecionado.',
+                UPLOAD_ERR_NO_TMP_DIR                   => 'Falha interna: diretório temporário ausente.',
+                UPLOAD_ERR_CANT_WRITE                   => 'Falha ao salvar o arquivo (permissão).',
+                UPLOAD_ERR_EXTENSION                    => 'Upload bloqueado por extensão do PHP.',
+                default                                 => 'Falha ao enviar o arquivo. Tente novamente.',
+            };
+            $_SESSION['flash_error'] = $msg;
+            session_write_close();
+            header('Location: /measurements/upload');
+            exit;
+        }
+
+        $name = (string)$file['name'];
+        $tmp  = (string)$file['tmp_name'];
+        $size = (int)$file['size'];
+
+        // Tamanho
         if ($size > 20 * 1024 * 1024) {
-            http_response_code(400);
-            echo 'Arquivo muito grande (max 20MB)';
-            return;
+            $_SESSION['flash_error'] = 'Arquivo muito grande (máx. 20 MB).';
+            session_write_close();
+            header('Location: /measurements/upload');
+            exit;
         }
+
+        // Extensão permitida
         $ext = strtolower(pathinfo($name, PATHINFO_EXTENSION));
         $allowed = ['pdf', 'xlsx', 'xls', 'csv'];
         if (!in_array($ext, $allowed, true)) {
-            http_response_code(400);
-            echo 'Tipo não permitido';
-            return;
+            $_SESSION['flash_error'] = 'Tipo de arquivo não permitido. Envie um PDF, XLSX, XLS ou CSV.';
+            session_write_close();
+            header('Location: /measurements/upload');
+            exit;
         }
+
+        // Diretório
         $dir = __DIR__ . '/../../public/uploads/ops/' . $opId;
         if (!is_dir($dir) && !mkdir($dir, 0775, true) && !is_dir($dir)) {
-            http_response_code(500);
-            echo 'Falha ao criar diretório';
-            return;
+            $_SESSION['flash_error'] = 'Falha ao preparar o diretório de upload.';
+            session_write_close();
+            header('Location: /measurements/upload');
+            exit;
         }
+
+        // Nome seguro + mover
         $safeBase = preg_replace('/[^a-zA-Z0-9_-]+/', '_', pathinfo($name, PATHINFO_FILENAME)) ?: 'medicao';
         $new = $safeBase . '_' . date('Ymd_His') . '.' . $ext;
         if (!move_uploaded_file($tmp, $dir . '/' . $new)) {
-            http_response_code(500);
-            echo 'Falha ao salvar';
-            return;
+            $_SESSION['flash_error'] = 'Falha ao salvar o arquivo.';
+            session_write_close();
+            header('Location: /measurements/upload');
+            exit;
         }
+
+        // Persistência
         $publicPath = '/uploads/ops/' . $opId . '/' . $new;
         $fileId = (new MeasurementFileRepository())->create($opId, $name, $publicPath, null);
-        // Status inicial: Engenharia (nova medição adicionada)
+
+        // Status inicial
         $this->setStatus($opId, self::ST_ENGENHARIA, 'Arquivo de medição adicionado.');
-        // criar etapa 1 (revisor = responsável), se houver
+
+        // Cria etapa 1 se houver responsável
         $responsibleId = (int)($op['responsible_user_id'] ?? 0);
         if ($responsibleId > 0) {
             (new MeasurementReviewRepository())->createStage($fileId, 1, $responsibleId);
         }
-        // notificar responsável com link para analisar (1ª etapa)
+
+        // Notificação do responsável (etapa 1)
         if ($responsibleId > 0) {
-            $u = (new UserRepository())->findBasic($responsibleId);
-            if ($u) {
+            if ($u = (new UserRepository())->findBasic($responsibleId)) {
                 $base = rtrim($_ENV['APP_URL'] ?? '', '/');
                 $link = $base . '/measurements/' . $fileId . '/review/1';
-                // Assunto com o NOME (título) da operação
-                $subject = $this->esc((string)$op['title']) . ': ' . 'Nova medição — 1ª Validação (Engenharia)';
-                // Corpo destacando o NOME; código vira opcional entre parênteses
+
+                $subject = $this->esc((string)$op['title']) . ': Nova medição — 1ª Validação (Engenharia)';
+
                 $html = '<p>Olá, ' . htmlspecialchars($u['name']) . '</p>'
                     . '<p>Um novo arquivo de medição foi adicionado à operação '
                     . '<strong>' . $this->esc((string)$op['title']) . '</strong>'
                     . (!empty($op['code']) ? ' (Código: ' . $this->esc((string)$op['code']) . ')' : '')
                     . '.</p>'
-                    . '<p>Status da operação: <strong>' . self::ST_ENGENHARIA . '</strong>.</p>'
-                    . // CTA estilizado (compatível com a maioria dos clientes de e-mail)
-                    $cta = '
-                        <table role="presentation" cellspacing="0" cellpadding="0" border="0" style="margin:16px 0">
-                            <tr>
-                                <td align="left" style="border-radius:8px; background:#0B2A4A;">
-                                    <a href="' . $this->esc($link) . '"style="display:inline-block; padding:12px 18px; border-radius:8px; background:#0B2A4A; border:1px solid #0B2A4A; font-family:Arial,Helvetica,sans-serif; font-size:14px; line-height:20px; text-decoration:none; color:#ffffff; font-weight:600;">
-                                        Analisar medição
-                                    </a>
-                                </td>
-                            </tr>
-                        </table>';
+                    . '<p>Status da operação: <strong>' . self::ST_ENGENHARIA . '</strong>.</p>';
+
+                // <<< corrigido: concatenação do botão >>>
+                $cta = '
+                <table role="presentation" cellspacing="0" cellpadding="0" border="0" style="margin:16px 0">
+                    <tr>
+                        <td align="left" style="border-radius:8px; background:#0B2A4A;">
+                            <a href="' . $this->esc($link) . '" style="display:inline-block; padding:12px 18px; border-radius:8px; background:#0B2A4A; border:1px solid #0B2A4A; font-family:Arial,Helvetica,sans-serif; font-size:14px; line-height:20px; text-decoration:none; color:#ffffff; font-weight:600;">
+                                Analisar medição
+                            </a>
+                        </td>
+                    </tr>
+                </table>';
+                $html .= $cta;
+
                 $this->smtpSend($u['email'], $u['name'], $subject, $html, $opId);
             }
         }
+
         header('Location: /measurements/upload?ok=1');
         exit;
     }
@@ -1282,8 +1320,9 @@ final class MeasurementController extends Controller
         )->execute([':f' => $fileId]);
 
         // notifica assinantes + revisor da etapa anterior (4ª)
-        // usamos "4" como etapa para manter a mesma lógica/assunto
-        $this->sendRejectionEmails((array)$op, $opId, $fileId, 4, $notes);
+        // usamos "5" como etapa para manter a mesma lógica/assunto
+        //$this->sendRejectionEmails((array)$op, $opId, $fileId, 4, $notes);
+        $this->sendRejectionEmails((array)$op, $opId, $fileId, 5, $notes);
 
         // ficar na mesma página (history dá contexto completo)
         header('Location: /measurements/' . (int)$fileId . '/history');
@@ -1360,6 +1399,7 @@ final class MeasurementController extends Controller
                 2 => self::ST_GESTAO,
                 3 => self::ST_JURIDICO,
                 4 => self::ST_PAGAMENTO,
+                5 => 'Finalização',
                 default => 'Etapa desconhecida',
             };
             $opTitle  = trim((string)($op['title'] ?? ''));
@@ -1404,6 +1444,7 @@ final class MeasurementController extends Controller
                     2 => 'Gestão',
                     3 => 'Compliance',
                     4 => 'Pagamento',
+                    5 => 'Finalização',
                     default => $n . 'ª etapa',
                 };
             };

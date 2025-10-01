@@ -14,12 +14,14 @@ include __DIR__ . '/../layout/header.php';
                 <h1 class="ops-hero__title">Operações</h1>
                 <p class="ops-hero__subtitle">Acompanhe o status das operações e o calendário de medições</p>
             </div>
-            <a href="/operations/create" class="btn btn-brand btn-pill d-inline-flex align-items-center gap-2">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                    <path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
-                </svg>
-                Nova operação
-            </a>
+            <?php if (($role ?? 'user') === 'admin'): ?>
+                <a href="/operations/create" class="btn btn-brand btn-pill d-inline-flex align-items-center gap-2">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                        <path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+                    </svg>
+                    Nova operação
+                </a>
+            <?php endif; ?>
         </div>
     </div>
 </section>
@@ -38,7 +40,7 @@ include __DIR__ . '/../layout/header.php';
                     <label class="form-label ops-label">Status</label>
                     <select name="status" class="form-select ops-input">
                         <option value="">Todos</option>
-                        <?php foreach (['completo', 'compliance', 'engenharia', 'finalização', 'gestão', 'pagamento', 'rejeitado'] as $s): ?>
+                        <?php foreach (['completo', 'compliance', 'criado', 'engenharia', 'finalização', 'gestão', 'pagamento', 'rejeitado'] as $s): ?>
                             <option value="<?= $s ?>" <?= (($filters['status'] ?? '') === $s) ? 'selected' : '' ?>><?= ucfirst($s) ?></option>
                         <?php endforeach; ?>
                     </select>
@@ -110,6 +112,7 @@ include __DIR__ . '/../layout/header.php';
                                 'Pagamento'     => 'stage--pagamento',
                                 'Finalização'   => 'stage--finalizar',
                                 'Completo'      => 'stage--completo',
+                                'Criado'        => 'ops-badge--neutral',
                             ];
                             $statusLabel = (string)($row['status'] ?? '');
                             $stageClass  = $stageMap[$statusLabel] ?? null;

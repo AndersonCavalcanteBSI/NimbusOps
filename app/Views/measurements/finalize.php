@@ -215,7 +215,24 @@ $statusBadge = function (string $st): string {
         </div>
     </form>-->
     <!-- Confirmação -->
-    <form method="post" action="/measurements/<?= (int)$file['id'] ?>/finalize" class="mt-3">
+    <!--<form method="post" action="/measurements/<?= (int)$file['id'] ?>/finalize" class="mt-3">
+        <div class="alert alert-warning d-flex align-items-center gap-2 shadow-sm">
+            <svg width="18" height="18" viewBox="0 0 24 24">
+                <path d="M12 9v4m0 4h.01M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"
+                    stroke="currentColor" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round" />
+            </svg>
+            <div>
+                Ao confirmar, o status da operação será atualizado para <strong>Concluído</strong> e a medição será bloqueada para edição.
+            </div>
+        </div>
+        <div class="d-flex gap-2">
+            <button class="btn btn-brand btn-pill">Confirmar finalização</button>
+            <a class="btn btn-brand btn-pill" href="/operations/<?= (int)$operationId ?>">Cancelar</a>
+        </div>
+    </form>-->
+
+    <form method="post" action="/measurements/<?= (int)$file['id'] ?>/finalize">
+        <input type="hidden" name="csrf" value="<?= htmlspecialchars($csrf ?? '') ?>">
         <div class="alert alert-warning d-flex align-items-center gap-2 shadow-sm">
             <svg width="18" height="18" viewBox="0 0 24 24">
                 <path d="M12 9v4m0 4h.01M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"

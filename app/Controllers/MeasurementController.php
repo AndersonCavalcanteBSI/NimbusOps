@@ -269,117 +269,6 @@ final class MeasurementController extends Controller
         return $opId ? (int)$opId : null;
     }
     /** GET: Mostra formulário de análise (estágio N) */
-    /*public function reviewForm(int $fileId, int $stage = 1): void
-    {
-        $pdo = \Core\Database::pdo();
-
-        // arquivo
-        $st = $pdo->prepare('SELECT * FROM measurement_files WHERE id = :id LIMIT 1');
-        $st->execute([':id' => $fileId]);
-        $file = $st->fetch();
-        if (!$file) {
-            http_response_code(404);
-            echo 'Arquivo não encontrado';
-            return;
-        }
-        // Se a medição já estiver concluída, vá para o histórico
-        if (isset($file['status']) && mb_strtolower((string)$file['status'], 'UTF-8') === mb_strtolower('Concluído', 'UTF-8')) {
-            header('Location: /measurements/' . (int)$file['id'] . '/history');
-            exit;
-        }
-        $mrRepo = new MeasurementReviewRepository();
-        $mr = $mrRepo->getStage($fileId, $stage);
-        // Fallback: cria a etapa se estiver faltando
-        if (!$mr) {
-            $opSt = $pdo->prepare('SELECT * FROM operations WHERE id = :op');
-            $opSt->execute([':op' => (int)$file['operation_id']]);
-            $op = $opSt->fetch();
-            $reviewerId = null;
-            if ($stage === 1) {
-                $reviewerId = (int)($op['responsible_user_id'] ?? 0);
-            } elseif ($stage === 2) {
-                $reviewerId = (int)($op['stage2_reviewer_user_id'] ?? 0);
-            } elseif ($stage === 3) {
-                $reviewerId = (int)($op['stage3_reviewer_user_id'] ?? 0);
-            } elseif ($stage === 4) {
-                $reviewerId = (int)($op['payment_manager_user_id'] ?? 0);
-            }
-            if ($reviewerId) {
-                $mrRepo->createStage($fileId, $stage, $reviewerId);
-                $mr = $mrRepo->getStage($fileId, $stage);
-            } else {
-                http_response_code(400);
-                echo 'Etapa não encontrada: defina o revisor da etapa na operação.';
-                return;
-            }
-        }
-        // ==== PERMISSÃO DE QUEM PODE ANALISAR ====
-        $opId   = (int)$file['operation_id'];
-        $opRepo = new OperationRepository();
-        $op     = $opRepo->find($opId);
-        $uid        = $this->currentUserId();
-        $requiredSt = $this->requiredStatusForStage($stage);
-        // leitura-apenas quando operação = Completo OU arquivo = Concluído
-        $readOnly = $this->statusEquals((string)($op['status'] ?? ''), self::ST_COMPLETO)
-            || (isset($file['status']) && mb_strtolower((string)$file['status'], 'UTF-8') === mb_strtolower('Concluído', 'UTF-8'));
-        // highlight-start
-        // ===== ALTERAÇÃO DE SEGURANÇA =====
-        // Se não for apenas leitura, um usuário VÁLIDO é obrigatório.
-        if (!$readOnly) {
-            if (!$uid) {
-                http_response_code(401); // 401 Unauthorized
-                echo 'Acesso não autorizado. Faça login para visualizar esta página.';
-                return;
-            }
-            // A partir daqui, o código pode assumir que $uid é um inteiro válido.
-            if ($requiredSt && !$this->statusEquals((string)($op['status'] ?? ''), $requiredSt)) {
-                http_response_code(403);
-                echo 'Esta etapa não está disponível no status atual da operação.';
-                return;
-            }
-            $expectedReviewerId = $this->reviewerIdFrom((array)$mr);
-            if (!$this->userCanReview($uid, $expectedReviewerId)) {
-                if (strtolower((string)($_ENV['APP_DEBUG'] ?? 'false')) === 'true') {
-                    error_log(sprintf(
-                        '[reviewForm] Bloqueado: uid=%s, expected=%s, stage=%d, file=%d',
-                        var_export($uid, true),
-                        var_export($expectedReviewerId, true),
-                        (int)$stage,
-                        (int)$fileId
-                    ));
-                    echo 'Você não tem permissão para revisar esta etapa. (debug uid='
-                        . (int)$uid . ' expected=' . (int)$expectedReviewerId . ')';
-                } else {
-                    echo 'Você não tem permissão para revisar esta etapa.';
-                }
-                http_response_code(403);
-                return;
-            }
-            if (isset($mr['status']) && $mr['status'] !== 'pending') {
-                http_response_code(403);
-                echo 'Esta etapa já foi analisada. Aguarde as próximas validações.';
-                return;
-            }
-        }
-        // highlight-end
-        // revisões anteriores
-        $prev = $mrRepo->listByFile($fileId);
-        // Pagamentos (somente na 4ª etapa)
-        $payments = [];
-        if ($stage === 4 && class_exists(\App\Repositories\MeasurementPaymentRepository::class)) {
-            $pRepo = new \App\Repositories\MeasurementPaymentRepository();
-            $payments = $pRepo->listByMeasurement($fileId);
-        }
-        $this->view('measurements/review', [
-            'file'        => $file,
-            'review'      => $mr,
-            'operationId' => (int)$file['operation_id'],
-            'stage'       => $stage,
-            'previous'    => $prev,
-            'payments'    => $payments,
-            'readOnly'    => $readOnly,
-        ]);
-    }*/
     public function reviewForm(int $fileId, int $stage = 1): void
     {
         $pdo = \Core\Database::pdo();
@@ -1042,7 +931,7 @@ final class MeasurementController extends Controller
         return (string)ob_get_clean();
     }
     /** GET: Mostra histórico completo e botão para finalizar */
-    public function finalizeForm(int $fileId): void
+    /*public function finalizeForm(int $fileId): void
     {
         $pdo = \Core\Database::pdo();
         // arquivo + operação
@@ -1068,7 +957,95 @@ final class MeasurementController extends Controller
             'reviews'     => $reviews,
             'payments'    => $payments,
         ]);
+    }*/
+    public function finalizeForm(int $fileId): void
+    {
+        $pdo = \Core\Database::pdo();
+
+        // arquivo + operação + status
+        $st = $pdo->prepare(
+            'SELECT mf.*, o.id AS op_id, o.title AS op_title, o.status AS op_status, o.payment_finalizer_user_id
+           FROM measurement_files mf
+           JOIN operations o ON o.id = mf.operation_id
+          WHERE mf.id = :id'
+        );
+        $st->execute([':id' => $fileId]);
+        $file = $st->fetch();
+        if (!$file) {
+            http_response_code(404);
+            echo 'Medição não encontrada';
+            return;
+        }
+
+        // se já concluído, manda pro histórico
+        if (isset($file['status']) && mb_strtolower((string)$file['status'], 'UTF-8') === mb_strtolower('Concluído', 'UTF-8')) {
+            header('Location: /measurements/' . (int)$file['id'] . '/history');
+            exit;
+        }
+
+        $opId = (int)$file['op_id'];
+        $op   = [
+            'id'                        => $opId,
+            'title'                     => $file['op_title'] ?? '',
+            'status'                    => $file['op_status'] ?? '',
+            'payment_finalizer_user_id' => $file['payment_finalizer_user_id'] ?? null,
+        ];
+
+        // precisa estar logado e autorizado
+        $uid = $this->currentUserId();
+        if (!$uid || !$this->userCanFinalize($uid, $op)) {
+            http_response_code(403);
+            $this->view('errors/block', [
+                'title'         => 'Permissão necessária',
+                'heading'       => 'Você não tem permissão para finalizar esta medição.',
+                'message'       => 'Apenas o finalizador configurado (ou administradores) podem concluir esta ação quando a operação está em "Finalizar".',
+                'primaryHref'   => '/operations/' . $opId,
+                'primaryLabel'  => 'Ir para a operação',
+                'secondaryHref' => '/measurements/' . (int)$fileId . '/history',
+                'secondaryLabel' => 'Ver histórico',
+                'backHref'      => '/operations/' . $opId,
+            ]);
+            return;
+        }
+
+        // precisa estar no status "Finalizar"
+        if (mb_strtolower((string)$op['status'], 'UTF-8') !== mb_strtolower(self::ST_FINALIZAR, 'UTF-8')) {
+            http_response_code(403);
+            $this->view('errors/block', [
+                'title'         => 'Etapa indisponível',
+                'heading'       => 'Esta etapa não está disponível no status atual da operação.',
+                'details'       => 'Status atual: <strong>' . htmlspecialchars((string)$op['status']) . '</strong> • Etapa requerida: <strong>' . htmlspecialchars(self::ST_FINALIZAR) . '</strong>.',
+                'primaryHref'   => '/operations/' . $opId,
+                'primaryLabel'  => 'Ir para a operação',
+                'secondaryHref' => '/measurements/' . (int)$fileId . '/history',
+                'secondaryLabel' => 'Ver histórico da medição',
+                'backHref'      => '/operations/' . $opId,
+            ]);
+            return;
+        }
+
+        // CSRF (one-time)
+        $csrf = bin2hex(random_bytes(16));
+        $_SESSION['csrf_finalize'] = $csrf;
+
+        $mrRepo  = new \App\Repositories\MeasurementReviewRepository();
+        $reviews = $mrRepo->listByFile($fileId);
+
+        $payments = [];
+        if (class_exists(\App\Repositories\MeasurementPaymentRepository::class)) {
+            $pRepo   = new \App\Repositories\MeasurementPaymentRepository();
+            $payments = $pRepo->listByMeasurement($fileId);
+        }
+
+        $this->view('measurements/finalize', [
+            'file'        => $file,
+            'operationId' => $opId,
+            'reviews'     => $reviews,
+            'payments'    => $payments,
+            'csrf'        => $csrf, // inclua um <input type="hidden" name="csrf" ...> no form
+        ]);
     }
+
     /** POST: Confirma finalização => marca OP=Completo e arquivo=Concluído */
     public function finalizeSubmit(int $fileId): void
     {
@@ -1215,12 +1192,30 @@ final class MeasurementController extends Controller
     }
 
     /** Quem pode finalizar (Finalizar): finalizer da OP ou admin */
-    private function userCanFinalize(?int $uid, array $op): bool
+    /*private function userCanFinalize(?int $uid, array $op): bool
     {
         if (!$uid) return false;
         $user = (new \App\Repositories\UserRepository())->findBasic($uid);
         if (!$user) return false;
         if (($user['role'] ?? '') === 'admin') return true;
+        return $uid === (int)($op['payment_finalizer_user_id'] ?? 0);
+    }*/
+
+    private function userCanFinalize(?int $uid, array $op): bool
+    {
+        if (!$uid) return false;
+
+        // precisa estar em "Finalizar"
+        $status = (string)($op['status'] ?? '');
+        if (mb_strtolower($status, 'UTF-8') !== mb_strtolower(self::ST_FINALIZAR, 'UTF-8')) {
+            return false;
+        }
+
+        $user = (new \App\Repositories\UserRepository())->findBasic($uid);
+        if (!$user) return false;
+
+        if (($user['role'] ?? '') === 'admin') return true;
+
         return $uid === (int)($op['payment_finalizer_user_id'] ?? 0);
     }
 

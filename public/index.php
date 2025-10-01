@@ -127,7 +127,6 @@ $router->get('/measurements/{id}/finalize', fn(string $id) => (new MeasurementCo
 $router->post('/measurements/{id}/finalize', fn(string $id) => (new MeasurementController())->finalizeSubmit((int)$id));
 $router->post('/measurements/{id}/finalize/reject', fn(string $id) => (new MeasurementController())->finalizeReject((int)$id));
 
-
 // Criar operação
 $router->get('/operations/create', $adminOnly(fn() => (new OperationController())->create()));
 $router->post('/operations',       $adminOnly(fn() => (new OperationController())->store()));

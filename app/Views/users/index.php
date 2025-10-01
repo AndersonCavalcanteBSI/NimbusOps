@@ -18,6 +18,7 @@ $roleBadge = function (string $role): array {
         'admin', 'administrator', 'administrador' => ['Administrador', 'ops-badge--danger'],
         'manager', 'gestor'                        => ['Gestor', 'ops-badge--warning'],
         'analyst', 'analista'                      => ['Analista', 'ops-badge--info'],
+        'user', 'usuario'                      => ['Usuário', 'ops-badge--info'],
         default                                    => [ucfirst($role ?: 'Usuário'), 'ops-badge--neutral'],
     };
 };

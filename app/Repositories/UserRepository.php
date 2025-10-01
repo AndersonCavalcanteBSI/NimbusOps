@@ -268,4 +268,71 @@ final class UserRepository
 
         return (int)$pdo->lastInsertId();
     }
+
+    public function paginateFiltered(
+        array $filters,
+        int $page = 1,
+        int $perPage = 20,
+        string $orderBy = 'name',
+        string $dir = 'asc'
+    ): array {
+        $pdo = \Core\Database::pdo();
+
+        $validOrder = ['id', 'name', 'email', 'role', 'active', 'last_login_at', 'created_at'];
+        if (!in_array($orderBy, $validOrder, true)) $orderBy = 'name';
+        $dir = strtolower($dir) === 'desc' ? 'desc' : 'asc';
+
+        $where  = [];
+        $params = [];
+
+        // q -> name OR email (com ESCAPE)
+        if ($q = trim((string)($filters['q'] ?? ''))) {
+            $needle = str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], $q);
+            $like   = "%{$needle}%";
+            $esc    = " ESCAPE '\\\\' ";
+            $where[]       = "(name LIKE :q1{$esc} OR email LIKE :q2{$esc})";
+            $params[':q1'] = $like;
+            $params[':q2'] = $like;
+        }
+
+        // role exato
+        if ($role = trim((string)($filters['role'] ?? ''))) {
+            $where[]         = 'role = :role';
+            $params[':role'] = $role;
+        }
+
+        // active 0/1 quando fornecido
+        if (array_key_exists('active', $filters) && $filters['active'] !== null) {
+            $where[]            = 'active = :active';
+            $params[':active']  = (int)$filters['active'];
+        }
+
+        $whereSql = $where ? ('WHERE ' . implode(' AND ', $where)) : '';
+
+        // total
+        $count = $pdo->prepare("SELECT COUNT(*) FROM users {$whereSql}");
+        $count->execute($params);
+        $total = (int)$count->fetchColumn();
+
+        $offset = max(0, ($page - 1) * $perPage);
+
+        // dados
+        $sql = "SELECT id, name, email, role, active, last_login_at
+              FROM users
+              {$whereSql}
+          ORDER BY {$orderBy} {$dir}
+             LIMIT :limit OFFSET :offset";
+        $st = $pdo->prepare($sql);
+        foreach ($params as $k => $v) $st->bindValue($k, $v);
+        $st->bindValue(':limit',  $perPage, \PDO::PARAM_INT);
+        $st->bindValue(':offset', $offset,  \PDO::PARAM_INT);
+        $st->execute();
+
+        return [
+            'data'     => $st->fetchAll() ?: [],
+            'total'    => $total,
+            'page'     => $page,
+            'per_page' => $perPage,
+        ];
+    }
 }

@@ -203,7 +203,7 @@ final class UserRepository
      * Aceita somente campos existentes: name, avatar.
      * Ex.: updateProfile($id, ['name' => 'Novo Nome', 'avatar' => '/uploads/...'])
      */
-    public function updateProfile(int $id, array $data): void
+    /*public function updateProfile(int $id, array $data): void
     {
         $pdo    = Database::pdo();
         $sets   = [];
@@ -222,6 +222,77 @@ final class UserRepository
 
         $sql = 'UPDATE users SET ' . implode(', ', $sets) . ' WHERE id = :id';
         $pdo->prepare($sql)->execute($params);
+    }*/
+    public function updateProfile(
+        int $id,
+        array|string $dataOrName,
+        ?string $email = null,
+        ?string $role = null,
+        ?bool $active = null
+    ): bool {
+        $pdo = Database::pdo();
+
+        // Normaliza para array quando vier nos parâmetros soltos
+        $data = is_array($dataOrName) ? $dataOrName : [
+            'name'   => (string)$dataOrName,
+            'email'  => $email,   // pode ser null
+            'role'   => $role,    // pode ser null
+            'active' => $active,  // pode ser null
+        ];
+
+        $sets   = [];
+        $params = [':id' => $id];
+
+        if (array_key_exists('name', $data) && $data['name'] !== null) {
+            $sets[] = 'name = :name';
+            $params[':name'] = (string)$data['name'];
+        }
+
+        if (array_key_exists('email', $data) && $data['email'] !== null) {
+            $sets[] = 'email = :email';
+            $params[':email'] = trim((string)$data['email']);
+            // NÃO atualize email_normalized aqui — deixe o banco (coluna gerada/trigger) cuidar
+        }
+
+        if (array_key_exists('role', $data) && $data['role'] !== null) {
+            $roleVal = in_array((string)$data['role'], ['admin', 'user'], true) ? (string)$data['role'] : 'user';
+            $sets[] = 'role = :role';
+            $params[':role'] = $roleVal;
+        }
+
+        if (array_key_exists('active', $data) && $data['active'] !== null) {
+            $sets[] = 'active = :active';
+            $params[':active'] = (int)((bool)$data['active']);
+        }
+
+        if (array_key_exists('avatar', $data)) {
+            $sets[] = 'avatar = :avatar';
+            $params[':avatar'] = ($data['avatar'] === '' ? null : (string)$data['avatar']);
+        }
+
+        if (!$sets) {
+            // nada para atualizar (útil quando só troca a senha)
+            error_log('[UserRepository:updateProfile] Nenhum campo alterável recebido para id=' . $id);
+            return true;
+        }
+
+        $sql = 'UPDATE users SET ' . implode(', ', $sets) . ' WHERE id = :id';
+        $st  = $pdo->prepare($sql);
+        $st->execute($params);
+
+        // IMPORTANTE: rowCount pode ser 0 quando valores são idênticos; ainda assim é sucesso.
+        return true;
+    }
+
+    /** Helper para checar se a coluna existe (evita erros em bancos sem a gerada) */
+    private function columnExists(\PDO $pdo, string $table, string $column): bool
+    {
+        try {
+            $q = $pdo->query("SHOW COLUMNS FROM `{$table}` LIKE " . $pdo->quote($column));
+            return (bool)$q->fetch();
+        } catch (\Throwable) {
+            return false;
+        }
     }
 
     /**

@@ -51,6 +51,21 @@ final class AuthController extends Controller
             'entra_object_id' => (string)($user['entra_object_id'] ?? ''),
             'ms_linked'       => (int)($user['ms_linked'] ?? 0),
         ];
+
+        // >>> ADIÇÃO: avatar + versão para bust de cache
+        $avatar = (string)($user['avatar'] ?? '');
+        $_SESSION['user']['avatar'] = $avatar;
+        $_SESSION['user']['avatar_ver'] = '';
+        if ($avatar !== '') {
+            $docroot = rtrim($_SERVER['DOCUMENT_ROOT'] ?? (dirname(__DIR__, 2) . '/public'), '/');
+            $fsPath  = $docroot . $avatar; // ex.: /var/www/html/public/uploads/avatars/10/avatar.png
+            if (is_file($fsPath)) {
+                $_SESSION['user']['avatar_ver'] = (string) filemtime($fsPath);
+            } else {
+                // fallback: força recarregar na primeira sessão
+                $_SESSION['user']['avatar_ver'] = (string) time();
+            }
+        }
         // highlight-end
 
         // >>> AJUSTE: reforça ms_linked a partir da tabela oauth_tokens (persiste após logout)
@@ -194,6 +209,20 @@ final class AuthController extends Controller
             'entra_object_id' => (string)$entraId,
             'ms_linked'       => 1,
         ];
+
+        // >>> ADIÇÃO: avatar + versão
+        $avatar = (string)($user['avatar'] ?? '');
+        $_SESSION['user']['avatar'] = $avatar;
+        $_SESSION['user']['avatar_ver'] = '';
+        if ($avatar !== '') {
+            $docroot = rtrim($_SERVER['DOCUMENT_ROOT'] ?? (dirname(__DIR__, 2) . '/public'), '/');
+            $fsPath  = $docroot . $avatar;
+            if (is_file($fsPath)) {
+                $_SESSION['user']['avatar_ver'] = (string) filemtime($fsPath);
+            } else {
+                $_SESSION['user']['avatar_ver'] = (string) time();
+            }
+        }
 
         $repo->updateLastLogin((int)$user['id']);
 

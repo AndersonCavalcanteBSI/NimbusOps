@@ -1,13 +1,27 @@
 <?php
 $path   = $_SERVER['REQUEST_URI'] ?? '/';
 $active = fn(string $needle) => (str_starts_with($path, $needle) ? ' is-active' : '');
-//$h = fn($s) => htmlspecialchars((string)$s);
-$h = fn($s) => htmlspecialchars((string)$s, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+$h      = fn($s) => htmlspecialchars((string)$s, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+
 require_once __DIR__ . '/../partials/avatar_helper.php';
-$displayName = $_SESSION['user']['name']  ?? 'Perfil';
-$avatarPath  = $_SESSION['user']['avatar'] ?? '';
-$avatarSrc   = $avatarPath !== '' ? $h($avatarPath) : avatarPlaceholder($displayName, 28);
+
+// --- dados do usuário da sessão (com fallbacks) ---
+$u           = $_SESSION['user'] ?? [];
+$displayName = $u['name']  ?? 'Perfil';
+$role        = $u['role']  ?? 'user';
+$loggedIn    = isset($_SESSION['user_id']);                 // usado no template
+$msLinked    = (int)($u['ms_linked'] ?? 0) === 1;           // usado no template
+
+// Avatar com cache-buster (?v=)
+$avatarPath = (string)($u['avatar'] ?? '');
+$avatarVer  = (string)($u['avatar_ver'] ?? '');
+if ($avatarPath !== '') {
+    $avatarSrc = $h($avatarPath) . ($avatarVer !== '' ? ('?v=' . rawurlencode($avatarVer)) : '');
+} else {
+    $avatarSrc = avatarPlaceholder($displayName, 28);
+}
 ?>
+
 <nav class="navbar navbar-expand-lg topbar shadow-sm">
     <div class="container">
         <!-- Brand -->

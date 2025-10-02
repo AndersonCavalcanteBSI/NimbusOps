@@ -141,11 +141,26 @@ final class UserController extends Controller
             exit;
         }
 
-        try {
+        /*try {
             $repo->updateProfile($id, $name, $email, $role, $active);
             if ($pass !== '') {
                 $repo->setPassword($id, $pass);
             }
+            $_SESSION['flash_ok'] = 'Usuário atualizado.';
+            header('Location: /users');
+            exit;
+        } catch (\PDOException $e) {
+            $_SESSION['flash_err'] = 'Não foi possível salvar. E-mail já cadastrado?';
+            header('Location: /users/' . $id . '/edit');
+            exit;
+        }*/
+        try {
+            $repo->updateProfileAdmin($id, $name, $email, $role, $active);
+
+            if ($pass !== '') {
+                $repo->setPassword($id, $pass);
+            }
+
             $_SESSION['flash_ok'] = 'Usuário atualizado.';
             header('Location: /users');
             exit;

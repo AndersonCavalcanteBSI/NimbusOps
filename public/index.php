@@ -149,6 +149,8 @@ $router->post('/operations/{id}',      $adminOnly(fn(string $id) => (new Operati
 // O AuthMiddleware já protege estas rotas por sessão.
 $router->get('/profile',  fn() => (new ProfileController())->show());
 $router->post('/profile', fn() => (new ProfileController())->update());
+$router->post('/profile/password',  fn() => (new ProfileController())->updatePassword());  // senha  ← NOVA
+
 
 // Compat antigo GET "analyzed" -> review/1
 $router->get('/measurements/{id}/analyzed', function (string $id) {

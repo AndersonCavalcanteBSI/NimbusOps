@@ -43,7 +43,11 @@ $avatar = (string)($user['avatar'] ?? '');
                     <div class="modal-titlebar__text">Informações pessoais</div>
                 </div>
 
+                <!-- FORM PERFIL (nome/avatar) -->
                 <form method="post" action="/profile" enctype="multipart/form-data" class="card-body vstack gap-3">
+                    <!-- CSRF do perfil -->
+                    <input type="hidden" name="csrf_profile" value="<?= $esc($csrf_profile ?? '') ?>">
+
                     <div class="d-flex align-items-center gap-3">
                         <?php
                         $avatarSrc = !empty($user['avatar'])
@@ -94,13 +98,9 @@ $avatar = (string)($user['avatar'] ?? '');
                             <div class="fw-semibold d-flex align-items-center gap-2">
                                 Conta Microsoft
                                 <?php if ($linked): ?>
-                                    <span class="badge rounded-pill bg-success-subtle text-success border border-success-subtle">
-                                        • Conectada
-                                    </span>
+                                    <span class="badge rounded-pill bg-success-subtle text-success border border-success-subtle">• Conectada</span>
                                 <?php else: ?>
-                                    <span class="badge rounded-pill bg-secondary-subtle text-muted border border-secondary-subtle">
-                                        • Não conectada
-                                    </span>
+                                    <span class="badge rounded-pill bg-secondary-subtle text-muted border border-secondary-subtle">• Não conectada</span>
                                 <?php endif; ?>
                             </div>
                         </div>
@@ -128,7 +128,9 @@ $avatar = (string)($user['avatar'] ?? '');
                     </div>
                 </div>
             </div>
+
             <br>
+
             <div class="card shadow-sm">
                 <div class="card-header modal-titlebar">
                     <div class="modal-titlebar__icon">
@@ -138,7 +140,12 @@ $avatar = (string)($user['avatar'] ?? '');
                     </div>
                     <div class="modal-titlebar__text">Senha</div>
                 </div>
-                <div class="card-body vstack gap-3">
+
+                <!-- FORM SENHA (separado) -->
+                <form method="post" action="/profile/password" class="card-body vstack gap-3">
+                    <!-- CSRF da senha -->
+                    <input type="hidden" name="csrf_pwd" value="<?= $esc($csrf_pwd ?? '') ?>">
+
                     <div class="row g-3">
                         <div class="col-sm-6">
                             <label class="form-label">Senha atual</label>
@@ -148,6 +155,7 @@ $avatar = (string)($user['avatar'] ?? '');
                                     data-toggle-pwd="#pwd-current" aria-label="Mostrar/ocultar senha">👁️</button>
                             </div>
                         </div>
+
                         <div class="col-sm-6">
                             <label class="form-label">Nova senha</label>
                             <div class="position-relative">
@@ -156,7 +164,6 @@ $avatar = (string)($user['avatar'] ?? '');
                                     data-toggle-pwd="#pwd-new" aria-label="Mostrar/ocultar senha">👁️</button>
                             </div>
 
-                            <!-- Medidor -->
                             <div class="mt-2">
                                 <div class="progress" style="height:6px;">
                                     <div id="pwd-meter-bar" class="progress-bar" role="progressbar" style="width:0%"></div>
@@ -175,7 +182,11 @@ $avatar = (string)($user['avatar'] ?? '');
                             <div id="pwd-match" class="small mt-1"></div>
                         </div>
                     </div>
-                </div>
+
+                    <div class="d-flex gap-2 mt-2">
+                        <button class="btn btn-brand btn-pill">Atualizar senha</button>
+                    </div>
+                </form>
             </div>
         </div>
     </div>
@@ -183,7 +194,6 @@ $avatar = (string)($user['avatar'] ?? '');
 
 <script>
     (function() {
-        // Mostrar/ocultar
         document.querySelectorAll('[data-toggle-pwd]').forEach(btn => {
             btn.addEventListener('click', () => {
                 const sel = btn.getAttribute('data-toggle-pwd');
@@ -194,7 +204,6 @@ $avatar = (string)($user['avatar'] ?? '');
             });
         });
 
-        // Medidor de força
         const newPwd = document.getElementById('pwd-new');
         const confirmPwd = document.getElementById('pwd-confirm');
         const bar = document.getElementById('pwd-meter-bar');
@@ -204,30 +213,20 @@ $avatar = (string)($user['avatar'] ?? '');
         function scorePassword(pw) {
             let score = 0;
             if (!pw) return 0;
-            const sets = [
-                /[a-z]/, // minúsculas
-                /[A-Z]/, // maiúsculas
-                /[0-9]/, // dígitos
-                /[^a-zA-Z0-9]/ // símbolos
-            ];
-            // comprimento
+            const sets = [/[a-z]/, /[A-Z]/, /[0-9]/, /[^a-zA-Z0-9]/];
             if (pw.length >= 8) score += 1;
             if (pw.length >= 12) score += 1;
-            // diversidade
             score += sets.reduce((acc, rgx) => acc + (rgx.test(pw) ? 1 : 0), 0);
-            // bônus por >= 16 chars
             if (pw.length >= 16) score += 1;
-            return Math.min(score, 6); // 0..6
+            return Math.min(score, 6);
         }
 
         function updateMeter() {
             const pw = newPwd.value;
-            const s = scorePassword(pw); // 0..6 -> 0..100
+            const s = scorePassword(pw);
             const pct = Math.round((s / 6) * 100);
-
             bar.style.width = pct + '%';
 
-            // cor & rótulo
             let label = 'Muito fraca',
                 cls = 'bg-danger';
             if (s >= 2) {
@@ -249,7 +248,6 @@ $avatar = (string)($user['avatar'] ?? '');
             bar.className = 'progress-bar ' + cls;
             text.textContent = 'Força da senha: ' + label;
 
-            // Confirmação
             if (confirmPwd.value.length > 0) {
                 if (confirmPwd.value === pw) {
                     match.textContent = 'As senhas coincidem.';

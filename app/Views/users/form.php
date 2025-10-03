@@ -19,7 +19,7 @@ $msToken     = $msToken ?? null;
         <div class="d-flex align-items-center justify-content-between gap-3">
             <div class="ops-hero__stack">
                 <h1 class="ops-hero__title"><?= $isEdit ? 'Editar usuário' : 'Novo usuário' ?></h1>
-                <p class="ops-hero__subtitle">Defina dados de acesso, papel e integrações</p>
+                <p class="ops-hero__subtitle">Defina dados de acesso, tipo e integrações</p>
             </div>
             <a href="/users" class="btn btn-brand btn-pill">‹ Voltar</a>
         </div>
@@ -51,7 +51,7 @@ $msToken     = $msToken ?? null;
                     </div>
 
                     <div class="col-md-4">
-                        <label class="form-label ops-label">Papel</label>
+                        <label class="form-label ops-label">Tipo</label>
                         <select name="role" class="form-select ops-input">
                             <option value="user" <?= $role === 'user'    ? 'selected' : '' ?>>Usuário</option>
                             <!--<option value="analyst" <?= $role === 'analyst' ? 'selected' : '' ?>>Analista</option>

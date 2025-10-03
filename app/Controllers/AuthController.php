@@ -170,7 +170,7 @@ final class AuthController extends Controller
 
             $_SESSION['flash_success'] = 'Conta Microsoft conectada com sucesso.';
             session_write_close();
-            header('Location: /');
+            header('Location: /profile');
             exit;
         }
 
@@ -254,7 +254,7 @@ final class AuthController extends Controller
 
         $_SESSION['flash_success'] = 'Conta Microsoft desvinculada.';
         session_write_close();
-        header('Location: /');
+        header('Location: /profile');
         exit;
     }
 

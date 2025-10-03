@@ -55,10 +55,10 @@ $roleBadge = function (string $role): array {
                     <input type="text" name="q" value="<?= $h($_GET['q'] ?? '') ?>" class="form-control ops-input" placeholder="Nome ou e-mail">
                 </div>
                 <div class="col-lg-3">
-                    <label class="form-label ops-label">Papel</label>
+                    <label class="form-label ops-label">Tipo</label>
                     <select name="role" class="form-select ops-input">
                         <option value="">Todos</option>
-                        <?php foreach (['admin' => 'Administrador', 'manager' => 'Gestor', 'analyst' => 'Analista', 'user' => 'Usuário'] as $val => $lab): ?>
+                        <?php foreach (['admin' => 'Administrador', 'user' => 'Usuário'] as $val => $lab): ?>
                             <option value="<?= $val ?>" <?= (($s = $_GET['role'] ?? '') === $val ? 'selected' : '') ?>><?= $lab ?></option>
                         <?php endforeach; ?>
                     </select>

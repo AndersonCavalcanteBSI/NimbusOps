@@ -1410,6 +1410,7 @@ final class MeasurementController extends Controller
                 2 => self::ST_GESTAO,
                 3 => self::ST_JURIDICO,
                 4 => self::ST_PAGAMENTO,
+                5 => 'Finalização',
                 default => 'Etapa desconhecida',
             };
             $cta  = '
